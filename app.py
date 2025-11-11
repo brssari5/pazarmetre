@@ -227,6 +227,10 @@ async def log_visit(request: Request, call_next):
 @app.get("/healthz")
 def healthz():
     return PlainTextResponse("ok")
+@app.head("/healthz")
+def healthz_head():
+    # HEAD isteği için sadece 200 dönmesi yeterli, body boş olabilir
+    return PlainTextResponse("")    
 
 # =============== Mini lokasyon verisi ===============
 LOC_JSON = {
