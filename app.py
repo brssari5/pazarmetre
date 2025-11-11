@@ -517,7 +517,7 @@ async def dashboard(request: Request):
     with get_session() as s:
         prods = s.exec(select(Product).where(Product.featured == True)).all()
         if not prods:
-            body = "<div class='bg-white card p-6 text-gray-600'>Vitrine ekli ürün yok. Admin’den ürün ekleyin.</div>"
+            body = "<div class='bg-white card p-6 text-gray-600'>Şu an vitrinimizde ürün bulunmuyor.Yeni ürünler çok yakında burada olacak.</div>"
             return layout(request, body, "Pazarmetre – Vitrin")
 
         for p in prods:
