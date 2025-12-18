@@ -296,18 +296,21 @@ async def log_visit(request: Request, call_next):
 
         # sayılmayacak yollar
         if (
-            p.startswith("/admin")
-            or p.startswith("/static")
+            p.startswith("/static")
             or p.startswith("/healthz")
             or p in ("/favicon.ico", "/robots.txt", "/sitemap.xml")
         ):
             return response
 
-        # cookie varsa => bu tarayıcı oturumu zaten sayılmıştır, bir daha sayma
+        # 🔥 2. ADIM: sadece ANA SAYFA sayılır
+        if p != "/":
+            return response
+
+        # cookie varsa → bu tarayıcı zaten sayılmıştır
         if request.cookies.get("pz_sess"):
             return response
 
-        # ilk giriş => cookie bas + kaydet
+        # ilk giriş → cookie bas + kaydet
         sess = uuid.uuid4().hex
         response.set_cookie("pz_sess", sess, samesite="lax")
 
