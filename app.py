@@ -828,7 +828,12 @@ async def dashboard(request: Request):
                     "</div>"
                 )
 
-            icon = "🥩" if cat_key == "et" else "🍗"
+            if cat_key == "et":
+                icon = "🥩"
+            elif cat_key == "tavuk":
+                icon = "🍗"
+            else:  # diger
+                icon = "🛒"
 
             card_html = f"""
               <a href="/urun?name={quote(p.name, safe='')}" class="block bg-white card p-4 transition hover:ring-1 hover:ring-emerald-100" role="link">
