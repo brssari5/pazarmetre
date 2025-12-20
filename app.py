@@ -16,9 +16,9 @@ from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse,
 from fastapi.staticfiles import StaticFiles
 from sqlmodel import SQLModel, Field, Session, create_engine, select
 from sqlalchemy import func
-from datetime import datetime, timedelta
 from itertools import zip_longest
 import uuid
+import traceback
 
 
 
@@ -281,10 +281,12 @@ def _hash_ip(ip: str) -> str:
 
 @app.middleware("http")
 async def log_visit(request: Request, call_next):
+    path = request.url.path or "/"
+    existing_sess = request.cookies.get("pz_sess")
+
     response = await call_next(request)
 
     try:
-        # sadece gerçek sayfa yüklemeleri
         if request.method != "GET":
             return response
 
@@ -292,43 +294,47 @@ async def log_visit(request: Request, call_next):
         if "text/html" not in accept:
             return response
 
-        p = request.url.path or "/"
-
-        # sayılmayacak yollar
         if (
-            p.startswith("/static")
-            or p.startswith("/healthz")
-            or p in ("/favicon.ico", "/robots.txt", "/sitemap.xml")
+            path.startswith("/static")
+            or path.startswith("/healthz")
+            or path in ("/favicon.ico", "/robots.txt", "/sitemap.xml")
         ):
             return response
 
-        # 🔥 2. ADIM: sadece ANA SAYFA sayılır
-        if p != "/":
+        if existing_sess:
             return response
 
-        # cookie varsa → bu tarayıcı zaten sayılmıştır
-        if request.cookies.get("pz_sess"):
-            return response
-
-        # ilk giriş → cookie bas + kaydet
+        import uuid
         sess = uuid.uuid4().hex
-        response.set_cookie("pz_sess", sess, samesite="lax")
 
+        response.set_cookie(
+            "pz_sess",
+            sess,
+            samesite="lax",
+            path="/",
+            httponly=True,
+        )
+
+        ip = _client_ip(request)
+        ip_h = _hash_ip(ip)
+        visitor_h = hashlib.sha256((sess + ANALYTICS_SALT).encode("utf-8")).hexdigest()
+
+        from datetime import datetime as _dt
         with get_session() as s:
             s.add(Visit(
-                path="/",
-                ip_hash=_hash_ip(_client_ip(request)),
-                visitor_hash=hashlib.sha256((sess + ANALYTICS_SALT).encode("utf-8")).hexdigest(),
-                ua=request.headers.get("user-agent", "")[:255],
-                ts=datetime.utcnow()
+                path=path,
+                ip_hash=ip_h,
+                visitor_hash=visitor_h,
+                ua=(request.headers.get("user-agent", "")[:255]),
+                ts=_dt.utcnow()
             ))
             s.commit()
 
     except Exception as e:
-        print("WARN log_visit:", e)
+        print("WARN log_visit:", repr(e))
+        traceback.print_exc()
 
     return response
-
 # Basit sağlık kontrolü
 @app.get("/healthz")
 def healthz():
@@ -480,6 +486,21 @@ def header_right_html(request: Request) -> str:
 
 def layout(req: Request, body: str, title: str = "Pazarmetre") -> HTMLResponse:
     right = header_right_html(req)
+    
+    # Get visitor count from database - only show for admin
+    visitor_count_html = ""
+    if is_admin(req):
+        try:
+            with get_session() as s:
+                visitor_count = s.exec(select(func.count()).select_from(Visit)).one() or 0
+            visitor_count_html = f"""
+      <span class="text-gray-500 block mt-2">
+        👥 Toplam Ziyaretçi: <span class="font-semibold text-emerald-600">{visitor_count:,}</span>
+      </span>
+            """
+        except Exception as e:
+            print(f"WARN: Could not fetch visitor count: {e}")
+    
     html = f"""<!doctype html>
 <html lang="tr"><head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -509,6 +530,7 @@ def layout(req: Request, body: str, title: str = "Pazarmetre") -> HTMLResponse:
       <span class="text-gray-400 block mt-2">
         © {datetime.utcnow().year} Pazarmetre · Fiyatlar bilgilendirme amaçlıdır.
       </span>
+      {visitor_count_html}
     </footer>
 
     <!-- Çerez Bannerı -->
@@ -650,7 +672,21 @@ async def location_form(request: Request):
 
       // INIT
       loadCities();
+
+      // cookie yoksa: ilk ili otomatik seç (Sakarya)
+      if (!CUR.city) {{
+        citySel.selectedIndex = 1; // 0 placeholder, 1 ilk il
+        CUR.city = citySel.value;
+      }}
+
       loadDistricts();
+
+      // cookie yoksa: ilk ilçeyi otomatik seç
+      if (!CUR.dist) {{
+        distSel.selectedIndex = 1; // 0 placeholder, 1 ilk ilçe
+        CUR.dist = distSel.value;
+      }}
+
       loadNeighborhoods();
     }})();
     </script>
@@ -1018,6 +1054,7 @@ async def product_detail(request: Request, name: str):
         else:
             actions_html = ""
 
+        admin_cell = f"<td class='py-2 text-right'>{actions_html}</td>" if is_adm else ""
         trs.append(
             f"<tr class='{tr_cls} border-b'>"
             f"<td class='py-2 font-medium'>{st.name}</td>"
@@ -1025,7 +1062,7 @@ async def product_detail(request: Request, name: str):
             f"<td class='py-2 text-right font-semibold'>{off.price:.2f} {off.currency}</td>"
             f"<td class='py-2 text-xs text-gray-500'>{off.created_at.strftime('%d.%m.%Y')}</td>"
             f"<td class='py-2'>{badge}</td>"
-            f"{f'<td class=\"py-2 text-right\">{actions_html}</td>' if is_adm else ''}"
+            f"{admin_cell}"
             f"</tr>"
         )
 
@@ -1380,43 +1417,50 @@ async def admin_step1(request: Request):
         return red
 
     with get_session() as s:
-        # --- Kaynağı değişmiş fiyat sayısı ---
         try:
             bad_count = (
                 s.exec(
                     select(func.count())
                     .select_from(Offer)
                     .where((Offer.source_mismatch == True) | (Offer.source_mismatch == 1))
-                ).one()[0]
+                ).one()
                 or 0
             )
         except Exception as e:
             print("WARN /admin bad_count:", e)
             bad_count = 0
 
-        # --- Mini ziyaret sayaçları (TEKİL OTURUM) ---
         try:
-            # Toplam ziyaret (tekil tarayıcı oturumu)
+            now = datetime.utcnow()
+            today_start = datetime(now.year, now.month, now.day, 0, 0, 0)
+            yesterday_start = today_start - timedelta(days=1)
+
+            # SQLite'da ts TEXT olarak saklandigindan string'e ceviriyoruz
+            # Format: 'YYYY-MM-DD HH:MM:SS' (bosluk ile, T degil)
+            today_start_str = today_start.strftime('%Y-%m-%d %H:%M:%S')
+            yesterday_start_str = yesterday_start.strftime('%Y-%m-%d %H:%M:%S')
+
+            # Bugunku ziyaret sayisi
+            today_visits = s.exec(
+                select(func.count()).select_from(Visit).where(Visit.ts >= today_start_str)
+            ).one() or 0
+
+            # Dunku ziyaret sayisi
+            yesterday_visits = s.exec(
+                select(func.count()).select_from(Visit)
+                .where(Visit.ts >= yesterday_start_str)
+                .where(Visit.ts < today_start_str)
+            ).one() or 0
+
+            # Toplam ziyaret sayisi
             total_visits = s.exec(
-                select(func.count(func.distinct(Visit.visitor_hash)))
-                .where(Visit.visitor_hash.is_not(None))
-            ).one()[0] or 0
-
-            # Son 24 saat
-            cutoff = datetime.utcnow() - timedelta(days=1)
-
-            last24_visits = s.exec(
-                select(func.count(func.distinct(Visit.visitor_hash)))
-                .where(
-                    Visit.visitor_hash != None,
-                    Visit.ts >= cutoff
-                )
-            ).one()[0] or 0
+                select(func.count()).select_from(Visit)
+            ).one() or 0
 
         except Exception as e:
             print("WARN /admin stats:", e)
-            total_visits = 0
-            last24_visits = 0
+            traceback.print_exc()
+            today_visits = yesterday_visits = total_visits = 0
 
     warn_html = ""
     if bad_count:
@@ -1427,18 +1471,28 @@ async def admin_step1(request: Request):
         </div>
         """
 
+    # Tarih gösterimi için
+    today_date = now.strftime('%d.%m.%Y')
+    yesterday_date = (now - timedelta(days=1)).strftime('%d.%m.%Y')
+
     body = f"""
     <div class="bg-white card p-6 max-w-xl mx-auto">
 
-      <!-- Ziyaret Sayaçları -->
-      <div class="grid grid-cols-2 gap-3 mb-4">
-        <div class="p-3 rounded-lg bg-gray-50 text-center">
-          <div class="text-xs text-gray-500">Toplam Ziyaret</div>
-          <div class="text-2xl font-bold text-gray-800">{total_visits}</div>
+      <div class="grid grid-cols-3 gap-3 mb-4">
+        <div class="p-3 rounded-lg bg-emerald-50 text-center">
+          <div class="text-xs text-emerald-600 font-medium">Bugünkü Ziyaret</div>
+          <div class="text-xs text-gray-500 mt-1">{today_date}</div>
+          <div class="text-2xl font-bold text-emerald-700 mt-1">{today_visits:,}</div>
         </div>
-        <div class="p-3 rounded-lg bg-gray-50 text-center">
-          <div class="text-xs text-gray-500">Son 24 Saat</div>
-          <div class="text-2xl font-bold text-gray-800">{last24_visits}</div>
+        <div class="p-3 rounded-lg bg-blue-50 text-center">
+          <div class="text-xs text-blue-600 font-medium">Dünkü Ziyaret</div>
+          <div class="text-xs text-gray-500 mt-1">{yesterday_date}</div>
+          <div class="text-2xl font-bold text-blue-700 mt-1">{yesterday_visits:,}</div>
+        </div>
+        <div class="p-3 rounded-lg bg-indigo-50 text-center">
+          <div class="text-xs text-indigo-600 font-medium">Toplam Ziyaret</div>
+          <div class="text-xs text-gray-500 mt-1">Tüm zamanlar</div>
+          <div class="text-2xl font-bold text-indigo-700 mt-1">{total_visits:,}</div>
         </div>
       </div>
 
