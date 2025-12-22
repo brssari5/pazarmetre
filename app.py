@@ -1607,7 +1607,7 @@ async def admin_bulk_form(request: Request, store_name: str, featured: str = "0"
 
 def _row():
     return """
-    <div class="grid md:grid-cols-7 gap-2 items-center">
+    <div class="grid md:grid-cols-6 gap-2 items-center">
       <input class="border rounded-lg p-2" name="product_name" placeholder="Ürün adı (örn: Dana kıyma)">
       <div class="flex gap-1">
         <input class="border rounded-lg p-2 flex-1" name="price" placeholder="Fiyat" type="number" step="0.01">
