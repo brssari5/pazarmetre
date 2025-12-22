@@ -487,19 +487,13 @@ def header_right_html(request: Request) -> str:
 def layout(req: Request, body: str, title: str = "Pazarmetre") -> HTMLResponse:
     right = header_right_html(req)
     
-    # Get visitor count from database - only show for admin
-    visitor_count_html = ""
-    if is_admin(req):
-        try:
-            with get_session() as s:
-                visitor_count = s.exec(select(func.count()).select_from(Visit)).one() or 0
-            visitor_count_html = f"""
-      <span class="text-gray-500 block mt-2">
-        👥 Toplam Ziyaretçi: <span class="font-semibold text-emerald-600">{visitor_count:,}</span>
-      </span>
-            """
-        except Exception as e:
-            print(f"WARN: Could not fetch visitor count: {e}")
+    # Get visitor count from database
+    visitor_count = 0
+    try:
+        with get_session() as s:
+            visitor_count = s.exec(select(func.count()).select_from(Visit)).one() or 0
+    except Exception as e:
+        print(f"WARN: Could not fetch visitor count: {e}")
     
     html = f"""<!doctype html>
 <html lang="tr"><head>
@@ -530,7 +524,9 @@ def layout(req: Request, body: str, title: str = "Pazarmetre") -> HTMLResponse:
       <span class="text-gray-400 block mt-2">
         © {datetime.utcnow().year} Pazarmetre · Fiyatlar bilgilendirme amaçlıdır.
       </span>
-      {visitor_count_html}
+      <span class="text-gray-500 block mt-2">
+        👥 Toplam Ziyaretçi: <span class="font-semibold text-emerald-600">{visitor_count:,}</span>
+      </span>
     </footer>
 
     <!-- Çerez Bannerı -->
@@ -846,10 +842,6 @@ async def dashboard(request: Request):
             off, st = rows[0]
             best_price = off.price
 
-            # Kaç günlük?
-            days_old = (datetime.utcnow().date() - off.created_at.date()).days
-            is_old = days_old >= DAYS_HARD_DROP  # 7 gün ve üzeri için uyarı
-
             is_new = (datetime.utcnow() - off.created_at).total_seconds() < 86400
             new_dot = (
                 '<span class="inline-block w-2 h-2 bg-emerald-500 rounded-full mr-2"></span>'
@@ -857,15 +849,6 @@ async def dashboard(request: Request):
             )
             loc_label = (st.neighborhood or st.district) if nb else st.district
             unit = (p.unit or "").strip()
-
-            # 7+ günlük fiyat uyarısı
-            old_badge = ""
-            if is_old:
-                old_badge = (
-                    "<div class='text-[11px] text-amber-600 mt-1'>"
-                    "⚠ Bu fiyat 7 günden eski, güncel olmayabilir."
-                    "</div>"
-                )
 
             if cat_key == "et":
                 icon = "🥩"
@@ -884,7 +867,6 @@ async def dashboard(request: Request):
                       <div class="text-[11px] text-gray-500 mt-1">{('1 ' + unit) if unit else ''}</div>
                       <div class="text-[12px] text-slate-500 mt-1">{(st.name or '').title()} · {loc_label}</div>
                       <div class="text-[10px] text-gray-400 mt-1">{off.created_at.strftime('%d.%m.%Y')}</div>
-                      {old_badge}
                     </div>
                   </div>
                   <div class="text-right shrink-0">
@@ -962,25 +944,19 @@ async def product_detail(request: Request, name: str):
     city, dist, nb = get_loc(request)
 
     with get_session() as s:
-        # Türkçe karakter uyumluluğu için önce tüm ürünleri çekip Python'da filtrele
-        # SQLite'ın lower() fonksiyonu Türkçe karakterleri doğru işlemez (ş, ğ, ü, ö, ç, ı)
-        all_rows = s.exec(
+        # Product + Offer + Store’u birlikte çekiyoruz
+        rows = s.exec(
             select(Offer, Store, Product)
             .join(Store, Offer.store_id == Store.id)
             .join(Product, Offer.product_id == Product.id)
             .where(
+                func.lower(Product.name) == name.lower(),
                 Offer.approved == True,
                 Store.city == city,
                 Store.district == dist,
             )
             .order_by(Offer.price.asc(), Offer.created_at.desc())
         ).all()
-        
-        # Python'da Türkçe karaktere duyarlı case-insensitive karşılaştırma
-        rows = [
-            (o, st, p) for (o, st, p) in all_rows 
-            if p.name.lower() == name.lower()
-        ]
 
     # Hiç satır yoksa: bu lokasyonda bu isimle ürün yok
     if not rows:
@@ -1006,8 +982,7 @@ async def product_detail(request: Request, name: str):
         if rows_nb:
             rows_os = rows_nb
 
-    # Tazelik ve marka kırpması
-    rows_os = only_fresh_and_latest(rows_os, days_stale=DAYS_HARD_DROP)
+    # Marka bazında en yeni fiyatı al (7 günlük filtre yok)
     rows_os = dedupe_by_brand_latest(rows_os)
 
     if not rows_os:
@@ -1158,7 +1133,8 @@ async def brands_home(request: Request):
                     .where(Offer.store_id==st.id, Offer.approved==True)
                     .order_by(Offer.price.asc(), Offer.created_at.desc())
                 ).all()
-                rows = only_fresh_and_latest([(o, st) for o in offs])
+                # Tüm fiyatları göster, 7 günlük filtre yok
+                rows = dedupe_by_brand_latest([(o, st) for o in offs])
                 if rows:
                     off = rows[0][0]
                     price_html = f"<div class='chip bg-accent-50 text-accent-700'>{off.price:.2f} {off.currency}</div>"
@@ -1204,7 +1180,8 @@ async def brand_view(request: Request, brand: str):
                 .where(Offer.store_id==st.id, Offer.approved==True)
                 .order_by(Offer.price.asc(), Offer.created_at.desc())
             ).all()
-            rows = only_fresh_and_latest([(o, st) for o in offs])
+            # Tüm fiyatları göster, 7 günlük filtre yok
+            rows = dedupe_by_brand_latest([(o, st) for o in offs])
             if rows:
                 off = rows[0][0]
                 best_html = f"""
@@ -1429,7 +1406,7 @@ async def admin_step1(request: Request):
                     select(func.count())
                     .select_from(Offer)
                     .where((Offer.source_mismatch == True) | (Offer.source_mismatch == 1))
-                ).one()
+                ).scalar()
                 or 0
             )
         except Exception as e:
@@ -1437,68 +1414,87 @@ async def admin_step1(request: Request):
             bad_count = 0
 
         try:
+            cutoff_1d = datetime.utcnow() - timedelta(days=1)
+
+            total_sessions = s.exec(
+        try:
             now = datetime.utcnow()
             today_start = datetime(now.year, now.month, now.day, 0, 0, 0)
             yesterday_start = today_start - timedelta(days=1)
+            last_24h = now - timedelta(hours=24)
 
-            # SQLite'da ts TEXT olarak saklandigindan string'e ceviriyoruz
-            # Format: 'YYYY-MM-DD HH:MM:SS' (bosluk ile, T degil)
-            today_start_str = today_start.strftime('%Y-%m-%d %H:%M:%S')
-            yesterday_start_str = yesterday_start.strftime('%Y-%m-%d %H:%M:%S')
+            # SQLite'da ts TEXT olarak saklandığı için string'e çeviriyoruz
+            today_start_str = today_start.isoformat()
+            yesterday_start_str = yesterday_start.isoformat()
+            last_24h_str = last_24h.isoformat()
 
-            # Bugunku ziyaret sayisi
+            # Bugünkü ziyaret sayısı
             today_visits = s.exec(
                 select(func.count()).select_from(Visit).where(Visit.ts >= today_start_str)
-            ).one() or 0
+            ).scalar() or 0
 
-            # Dunku ziyaret sayisi
+            # Dünkü ziyaret sayısı
             yesterday_visits = s.exec(
                 select(func.count()).select_from(Visit)
                 .where(Visit.ts >= yesterday_start_str)
                 .where(Visit.ts < today_start_str)
-            ).one() or 0
+            ).scalar() or 0
 
-            # Toplam ziyaret sayisi
-            total_visits = s.exec(
+            # Toplam ziyaret sayısı (oturum sayısı)
+            total_sessions = s.exec(
                 select(func.count()).select_from(Visit)
-            ).one() or 0
+            ).scalar() or 0
+
+            # Son 24 saat oturum sayısı
+            last24_sessions = s.exec(
+                select(func.count()).select_from(Visit).where(Visit.ts >= last_24h_str)
+            ).scalar() or 0
+
+            # Toplam tekil IP sayısı
+            total_unique_ips = s.exec(
+                select(func.count(func.distinct(Visit.ip_hash))).select_from(Visit)
+            ).scalar() or 0
+
+            # Son 24 saat tekil IP sayısı
+            last24_unique_ips = s.exec(
+                select(func.count(func.distinct(Visit.ip_hash))).select_from(Visit)
+                .where(Visit.ts >= last_24h_str)
+            ).scalar() or 0
 
         except Exception as e:
             print("WARN /admin stats:", e)
             traceback.print_exc()
-            today_visits = yesterday_visits = total_visits = 0
-
-    warn_html = ""
-    if bad_count:
-        warn_html = f"""
+            today_visits = yesterday_visits = 0
+            total_sessions = last24_sessions = 0
+            total_unique_ips = last24_unique_ips = 0
         <div class="mb-4 p-3 rounded-lg bg-amber-50 text-amber-800 text-sm">
           ⚠️ Kaynağı değişmiş <b>{bad_count}</b> fiyat var.
           <a class="underline" href="/admin/fiyat-uyari">Listeyi gör</a>
         </div>
         """
 
-    # Tarih gösterimi için
-    today_date = now.strftime('%d.%m.%Y')
-    yesterday_date = (now - timedelta(days=1)).strftime('%d.%m.%Y')
-
     body = f"""
     <div class="bg-white card p-6 max-w-xl mx-auto">
 
-      <div class="grid grid-cols-3 gap-3 mb-4">
-        <div class="p-3 rounded-lg bg-emerald-50 text-center">
-          <div class="text-xs text-emerald-600 font-medium">Bugünkü Ziyaret</div>
-          <div class="text-xs text-gray-500 mt-1">{today_date}</div>
-          <div class="text-2xl font-bold text-emerald-700 mt-1">{today_visits:,}</div>
+      <div class="grid grid-cols-2 gap-3 mb-4">
+        <div class="p-3 rounded-lg bg-gray-50 text-center">
+          <div class="text-xs text-gray-500">Toplam Oturum (Tarayıcı Açılış)</div>
+          <div class="text-2xl font-bold text-gray-800">{total_sessions}</div>
         </div>
-        <div class="p-3 rounded-lg bg-blue-50 text-center">
-          <div class="text-xs text-blue-600 font-medium">Dünkü Ziyaret</div>
-          <div class="text-xs text-gray-500 mt-1">{yesterday_date}</div>
-          <div class="text-2xl font-bold text-blue-700 mt-1">{yesterday_visits:,}</div>
+        <div class="p-3 rounded-lg bg-gray-50 text-center">
+          <div class="text-xs text-gray-500">Son 24 Saat Oturum</div>
+          <div class="text-2xl font-bold text-gray-800">{last24_sessions}</div>
         </div>
-        <div class="p-3 rounded-lg bg-indigo-50 text-center">
-          <div class="text-xs text-indigo-600 font-medium">Toplam Ziyaret</div>
-          <div class="text-xs text-gray-500 mt-1">Tüm zamanlar</div>
-          <div class="text-2xl font-bold text-indigo-700 mt-1">{total_visits:,}</div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3 mb-4">
+        <div class="p-3 rounded-lg bg-gray-50 text-center">
+          <div class="text-xs text-gray-500">Toplam Tekil IP</div>
+          <div class="text-2xl font-bold text-gray-800">{total_unique_ips}</div>
+        </div>
+        <div class="p-3 rounded-lg bg-gray-50 text-center">
+          <div class="text-xs text-gray-500">Son 24 Saat Tekil IP</div>
+          <div class="text-2xl font-bold text-gray-800">{last24_unique_ips}</div>
         </div>
       </div>
 
@@ -1611,12 +1607,17 @@ async def admin_bulk_form(request: Request, store_name: str, featured: str = "0"
 
 def _row():
     return """
-    <div class="grid md:grid-cols-6 gap-2">
+    <div class="grid md:grid-cols-7 gap-2">
       <input class="border rounded-lg p-2" name="product_name" placeholder="Ürün adı (örn: Dana kıyma)">
       <input class="border rounded-lg p-2" name="price" placeholder="Fiyat (KG)">
       <input class="border rounded-lg p-2" name="store_address" placeholder="Market adresi (opsiyonel)">
       <input class="border rounded-lg p-2" name="source_url" placeholder="Kaynak URL (opsiyonel)">
       <input class="border rounded-lg p-2" name="source_weight_g" placeholder="Orijinal gram (örn: 400)">
+      <select class="border rounded-lg p-2 text-sm" name="unit">
+        <option value="kg" selected>kg</option>
+        <option value="litre">litre</option>
+        <option value="adet">adet</option>
+      </select>
       <select class="border rounded-lg p-2 text-sm" name="category">
         <option value="">Tür</option>
         <option value="tavuk">Tavuk</option>
@@ -1637,6 +1638,7 @@ async def admin_bulk_save(
     price: List[str] = Form([]),
     store_address: List[str] = Form([]),
     source_url: List[str] = Form([]),
+    unit: List[str] = Form([]),
     category: List[str] = Form([]),
     source_weight_g: List[str] = Form([]),
     source_unit: List[str] = Form([]),
@@ -1659,16 +1661,17 @@ async def admin_bulk_save(
         )
 
      # SATIRLARI ÜRÜN + FİYAT OLARAK TOPLA
-    # (ürün adı, fiyat, adres, url, gram, unit, kategori)
-    entries: List[Tuple[str, float, str, str, float | None, str | None, str | None]] = []
+    # (ürün adı, fiyat, adres, url, gram, unit, kategori, birim)
+    entries: List[Tuple[str, float, str, str, float | None, str | None, str | None, str]] = []
 
-    for pn, pr, addr, src, sw_raw, su_raw, cat in zip_longest(
+    for pn, pr, addr, src, sw_raw, su_raw, u_raw, cat in zip_longest(
         product_name,
         price,
         store_address,
         source_url,
         source_weight_g,
         source_unit,
+        unit,
         category,
         fillvalue="",
     ):
@@ -1678,11 +1681,16 @@ async def admin_bulk_save(
         src = (src or "").strip()
         sw_raw = (sw_raw or "").strip()
         su_raw = (su_raw or "").strip()
+        u_raw = (u_raw or "").strip()
         cat = (cat or "").strip().lower()
 
         # geçersiz kategori → None
         if cat not in ("et", "tavuk","diger"):
             cat = None
+
+        # geçersiz birim → varsayılan "kg"
+        if u_raw not in ("kg", "litre", "adet"):
+            u_raw = "kg"
 
         if not (pn and pr):
             continue
@@ -1701,7 +1709,7 @@ async def admin_bulk_save(
 
         su: str | None = su_raw or None
 
-        entries.append((pn, pv, addr, src, sw, su, cat))
+        entries.append((pn, pv, addr, src, sw, su, cat, u_raw))
 
     if not entries:
         return layout(
@@ -1748,21 +1756,20 @@ async def admin_bulk_save(
                 s.refresh(st)
 
             # HER SATIR İÇİN: ÜRÜN BUL/OLUŞTUR → BU MAĞAZAYA FİYAT YAZ
-            for pn, pv, addr, src, sw, su, cat in entries:
+            for pn, pv, addr, src, sw, su, cat, u in entries:
                 p = s.exec(select(Product).where(Product.name == pn)).first()
-                if not p:
-                    # yeni ürün: kategori ile birlikte oluştur
+                    # yeni ürün: kategori ve birim ile birlikte oluştur
                     p = Product(
-                        name=pn,
-                        unit="kg",
-                        featured=bool(featured),
-                        category=cat,
+                    name=pn,
+                    unit=u,
+                    featured=bool(featured),
+                    category=cat,
                     )
                     s.add(p)
                     s.commit()
                     s.refresh(p)
                 else:
-                    # mevcut ürün: gerekiyorsa featured / category güncelle
+                    # mevcut ürün: gerekiyorsa featured / category / unit güncelle
                     updated = False
                     if featured and not p.featured:
                         p.featured = True
@@ -1770,8 +1777,12 @@ async def admin_bulk_save(
                     if cat and not p.category:
                         p.category = cat
                         updated = True
+                    if u and p.unit != u:
+                        p.unit = u
+                        updated = True
                     if updated:
                         s.add(p)
+                        s.commit()
                         s.commit()
 
                 off = Offer(
