@@ -1607,22 +1607,24 @@ async def admin_bulk_form(request: Request, store_name: str, featured: str = "0"
 
 def _row():
     return """
-    <div class="grid md:grid-cols-7 gap-2">
+    <div class="grid md:grid-cols-7 gap-2 items-center">
       <input class="border rounded-lg p-2" name="product_name" placeholder="Ürün adı (örn: Dana kıyma)">
-      <input class="border rounded-lg p-2" name="price" placeholder="Fiyat (KG)">
+      <div class="flex gap-1">
+        <input class="border rounded-lg p-2 flex-1" name="price" placeholder="Fiyat" type="number" step="0.01">
+        <select class="border rounded-lg p-2 text-sm font-medium bg-emerald-50" name="unit" title="Birim seçin">
+          <option value="kg" selected>KG</option>
+          <option value="litre">LT</option>
+          <option value="adet">AD</option>
+        </select>
+      </div>
       <input class="border rounded-lg p-2" name="store_address" placeholder="Market adresi (opsiyonel)">
       <input class="border rounded-lg p-2" name="source_url" placeholder="Kaynak URL (opsiyonel)">
-      <input class="border rounded-lg p-2" name="source_weight_g" placeholder="Orijinal gram (örn: 400)">
-      <select class="border rounded-lg p-2 text-sm" name="unit">
-        <option value="kg" selected>kg</option>
-        <option value="litre">litre</option>
-        <option value="adet">adet</option>
-      </select>
+      <input class="border rounded-lg p-2" name="source_weight_g" placeholder="Orijinal gram (örn: 400)" type="number">
       <select class="border rounded-lg p-2 text-sm" name="category">
-        <option value="">Tür</option>
-        <option value="tavuk">Tavuk</option>
-        <option value="et">Et</option>
-        <option value="diger">Diger</option>
+        <option value="">Tür seçin</option>
+        <option value="tavuk">🍗 Tavuk</option>
+        <option value="et">🥩 Et</option>
+        <option value="diger">🛒 Diğer</option>
       </select>
     </div>"""
 
