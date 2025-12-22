@@ -962,19 +962,25 @@ async def product_detail(request: Request, name: str):
     city, dist, nb = get_loc(request)
 
     with get_session() as s:
-        # Product + Offer + Store’u birlikte çekiyoruz
-        rows = s.exec(
+        # Türkçe karakter uyumluluğu için önce tüm ürünleri çekip Python'da filtrele
+        # SQLite'ın lower() fonksiyonu Türkçe karakterleri doğru işlemez (ş, ğ, ü, ö, ç, ı)
+        all_rows = s.exec(
             select(Offer, Store, Product)
             .join(Store, Offer.store_id == Store.id)
             .join(Product, Offer.product_id == Product.id)
             .where(
-                func.lower(Product.name) == name.lower(),
                 Offer.approved == True,
                 Store.city == city,
                 Store.district == dist,
             )
             .order_by(Offer.price.asc(), Offer.created_at.desc())
         ).all()
+        
+        # Python'da Türkçe karaktere duyarlı case-insensitive karşılaştırma
+        rows = [
+            (o, st, p) for (o, st, p) in all_rows 
+            if p.name.lower() == name.lower()
+        ]
 
     # Hiç satır yoksa: bu lokasyonda bu isimle ürün yok
     if not rows:
