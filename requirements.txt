@@ -1,6 +1,25 @@
-fastapi>=0.115
-uvicorn[standard]>=0.30
-sqlalchemy>=2.0
-sqlmodel>=0.0.21
-pydantic>=2
-python-multipart
+# Core Framework
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# Database
+sqlmodel>=0.0.14
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.9  # PostgreSQL support
+alembic>=1.13.0  # Database migrations
+
+# Security & Authentication
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+python-multipart>=0.0.6
+
+# Environment Variables
+python-dotenv>=1.0.0
+
+# Email (optional)
+# python-decouple>=3.8
+# sendgrid>=6.11.0
+
+# Utilities
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
