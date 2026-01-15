@@ -1174,7 +1174,7 @@ async def product_detail(request: Request, name: str):
     trs = []
     for off, st in rows_os:
         is_best = (off.price == best_price)
-        badge = "<span class='ml-4'>🟢 En Ucuz</span>" if is_best else ""
+        badge = "<span class='ml-6 text-emerald-600 font-medium whitespace-nowrap'>🟢 En Ucuz</span>" if is_best else ""
         tr_cls = "bg-emerald-50" if is_best else "odd:bg-gray-50"
         nb_text = (st.neighborhood or "") if nb else ""
         addr_left = (nb_text + " – ") if nb_text else ""
@@ -1205,14 +1205,19 @@ async def product_detail(request: Request, name: str):
         
         # Tarih bilgisi - updated_at varsa onu, yoksa created_at kullan
         price_date = getattr(off, 'updated_at', None) or off.created_at
-        date_display = format_turkish_date(price_date)
+        date_display = format_turkish_date_short(price_date)
         
         trs.append(
             f"<tr class='{tr_cls} border-b'>"
             f"<td class='py-2 font-medium'>{st.name}</td>"
             f"<td class='py-2 text-gray-600'>{addr_left}{display_addr}{addr_extra}</td>"
-            f"<td class='py-2 text-right'><div class='font-semibold'>{off.price:.2f} {off.currency}</div><div class='text-xs text-gray-400'>{date_display}</div></td>"
-            f"<td class='py-2'>{badge}</td>"
+            f"<td class='py-2'>"
+            f"<div class='flex items-center justify-end gap-3'>"
+            f"<span class='font-semibold'>{off.price:.2f} {off.currency}</span>"
+            f"<span class='text-xs text-gray-400'>{date_display}</span>"
+            f"{badge}"
+            f"</div>"
+            f"</td>"
             f"{admin_cell}"
             f"</tr>"
         )
@@ -1272,7 +1277,7 @@ async def product_detail(request: Request, name: str):
       <div class="overflow-x-auto">
         <table class="min-w-full text-sm">
           <thead><tr class="text-left text-gray-500">
-            <th>Mağaza</th><th>Adres</th><th class="text-right">Fiyat</th><th></th>{'<th></th>' if is_adm else ''}
+            <th>Mağaza</th><th>Adres</th><th class="text-right">Fiyat</th>{'<th></th>' if is_adm else ''}
           </tr></thead>
           <tbody class="divide-y">{''.join(trs)}</tbody>
         </table>
