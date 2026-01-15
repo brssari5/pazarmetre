@@ -505,16 +505,29 @@ TURKISH_MONTHS = {
     9: "Eylül", 10: "Ekim", 11: "Kasım", 12: "Aralık"
 }
 
-def format_turkish_date(dt: Optional[datetime]) -> str:
+def format_turkish_date(dt) -> str:
     """Tarihi Türkçe formatında döndürür: '15 Ocak 2026'"""
     if not dt:
         return ""
+    # Eğer string ise datetime'a çevir
+    if isinstance(dt, str):
+        try:
+            dt = datetime.fromisoformat(dt.replace(' ', 'T').split('.')[0])
+        except:
+            return ""
     return f"{dt.day} {TURKISH_MONTHS.get(dt.month, '')} {dt.year}"
 
-def format_turkish_date_short(dt: Optional[datetime]) -> str:
+def format_turkish_date_short(dt) -> str:
     """Kısa Türkçe tarih: '15 Oca'"""
     if not dt:
         return ""
+    # Eğer string ise datetime'a çevir
+    if isinstance(dt, str):
+        try:
+            # ISO format: 2026-01-15T12:30:00 veya 2026-01-15 12:30:00
+            dt = datetime.fromisoformat(dt.replace(' ', 'T').split('.')[0])
+        except:
+            return ""
     month_short = TURKISH_MONTHS.get(dt.month, "")[:3]
     return f"{dt.day} {month_short}"
 
@@ -1190,19 +1203,6 @@ async def product_detail(request: Request, name: str):
         if is_adm:
             # JS içinde güvenli kullanmak için URL'i JSON string yap
             url_js = json.dumps(off.source_url or "")
-            actions_html = (
-                f"<button type='button' "
-                f"onclick='editOffer({off.id}, {off.price}, {url_js})' "
-                f"class='text-xs px-2 py-1 mr-1 rounded border text-blue-700 border-blue-200 hover:bg-blue-50'>Düzenle</button>"
-                f"<button type='button' "
-                f"onclick='delOffer({off.id}, this)' "
-                f"class='text-xs px-2 py-1 rounded border text-red-700 border-red-200 hover:bg-red-50'>Sil</button>"
-            )
-        else:
-            actions_html = ""
-
-        admin_cell = f"<td class='py-2 text-right'>{actions_html}</td>" if is_adm else ""
-        
         # Tarih bilgisi - updated_at varsa onu, yoksa created_at kullan
         price_date = getattr(off, 'updated_at', None) or off.created_at
         date_display = format_turkish_date_short(price_date)
@@ -1211,13 +1211,9 @@ async def product_detail(request: Request, name: str):
             f"<tr class='{tr_cls} border-b'>"
             f"<td class='py-2 font-medium'>{st.name}</td>"
             f"<td class='py-2 text-gray-600'>{addr_left}{display_addr}{addr_extra}</td>"
-            f"<td class='py-2'>"
-            f"<div class='flex items-center justify-end gap-3'>"
-            f"<span class='font-semibold'>{off.price:.2f} {off.currency}</span>"
-            f"<span class='text-xs text-gray-400'>{date_display}</span>"
-            f"{badge}"
-            f"</div>"
-            f"</td>"
+            f"<td class='py-2 text-right font-semibold'>{off.price:.2f} {off.currency}</td>"
+            f"<td class='py-2 text-center text-xs text-gray-500'>{date_display}</td>"
+            f"<td class='py-2'>{badge}</td>"
             f"{admin_cell}"
             f"</tr>"
         )
@@ -1258,7 +1254,6 @@ async def product_detail(request: Request, name: str):
 
           const r = await fetch('/admin/edit', { method: 'POST', body: fd });
           if(r.ok){
-            // En temiz çözüm: sayfayı yenile
             location.reload();
           } else {
             alert('Güncellenemedi');
@@ -1277,7 +1272,7 @@ async def product_detail(request: Request, name: str):
       <div class="overflow-x-auto">
         <table class="min-w-full text-sm">
           <thead><tr class="text-left text-gray-500">
-            <th>Mağaza</th><th>Adres</th><th class="text-right">Fiyat</th>{'<th></th>' if is_adm else ''}
+            <th>Mağaza</th><th>Adres</th><th class="text-right">Fiyat</th><th class="text-center">Tarih</th><th></th>{'<th></th>' if is_adm else ''}
           </tr></thead>
           <tbody class="divide-y">{''.join(trs)}</tbody>
         </table>
