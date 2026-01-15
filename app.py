@@ -28,6 +28,7 @@ from passlib.context import CryptContext
 from jose import JWTError, jwt
 from dotenv import load_dotenv
 
+
 # Load environment variables
 load_dotenv()
 
@@ -543,8 +544,15 @@ def is_admin(request: Request) -> bool:
     return request.cookies.get("adm", "") == ADMIN_PASSWORD
 
 def require_admin(request: Request):
-    if not is_admin(request):
-        return RedirectResponse("/admin/login", status_code=302)
+    if is_admin(request):
+        return None
+
+    # 🔴 fetch / POST istekleri için
+    if request.method == "POST":
+        return PlainTextResponse("UNAUTHORIZED", status_code=401)
+
+    # 🟢 normal sayfa istekleri için
+    return RedirectResponse("/admin/login", status_code=302)
 def dedupe_by_brand_latest(rows: List[tuple]) -> List[tuple]:
     """
     Aynı şehir/ilçedeki aynı mağaza adını tekilleştirir.
@@ -1204,7 +1212,15 @@ async def product_detail(request: Request, name: str):
             # JS içinde güvenli kullanmak için değerleri JSON string yap
             url_js = json.dumps(off.source_url or "")
             addr_js = json.dumps(getattr(off, "branch_address", None) or "")
-            admin_cell = f"<td class='py-2'><button onclick=\"editOffer({off.id}, {off.price}, {url_js}, {addr_js})\" class='text-blue-600 hover:underline text-sm mr-2'>Düzenle</button><button onclick=\"delOffer({off.id}, this)\" class='text-red-600 hover:underline text-sm'>Sil</button></td>"
+
+            admin_cell = (
+                "<td class='py-2'>"
+                f"<button type='button' onclick='editOffer({off.id}, {off.price}, {url_js}, {addr_js})' "
+                "class='text-blue-600 hover:underline text-sm mr-2'>Düzenle</button>"
+                f"<button type='button' onclick='delOffer({off.id}, this)' "
+                "class='text-red-600 hover:underline text-sm'>Sil</button>"
+                "</td>"
+            )
         else:
             admin_cell = ""
         # Tarih bilgisi - updated_at varsa onu, yoksa created_at kullan
@@ -1223,54 +1239,79 @@ async def product_detail(request: Request, name: str):
         )
 
     extra_js = """
-      <script>
-        async function delOffer(id, btn){
-          if(!confirm('Silinsin mi?')) return;
-          const fd = new FormData(); fd.append('offer_id', id);
-          const r = await fetch('/admin/del', { method: 'POST', body: fd });
-          if(r.ok){
-            const tr = btn.closest('tr');
-            if(tr) tr.remove();
-          } else {
-            alert('Silinemedi');
-          }
+    <script>
+    async function delOffer(id, btn){
+        if(!confirm('Silinsin mi?')) return;
+
+        const fd = new FormData();
+        fd.append('offer_id', id);
+
+        const r = await fetch('/admin/del', {
+        method: 'POST',
+        body: fd,
+        credentials: 'same-origin'
+        });
+
+        if(r.status === 401){
+        alert('Admin oturumu yok / süre dolmuş. Giriş ekranına yönlendiriyorum.');
+        location.href = '/admin/login';
+        return;
         }
 
-        async function editOffer(id, currentPrice, currentUrl, currentAddr){
-          // 1) Fiyat sor
-          let p = prompt('Yeni fiyat (örn: 459.90):', String(currentPrice ?? ''));
-          if(p === null) return; // vazgeçti
-          p = p.trim().replace(',', '.');
-          if(!p || isNaN(parseFloat(p))){
-            alert('Geçerli bir sayı gir lütfen.');
-            return;
-          }
-
-          // 2) Adres sor
-          let a = prompt('Şube adresi (boş bırakabilirsin):', currentAddr || '');
-          if(a === null) return; // vazgeçti
-          a = a.trim();
-
-          // 3) URL sor
-          let u = prompt('Kaynak URL (boş bırakabilirsin):', currentUrl || '');
-          if(u === null) return; // vazgeçti
-          u = u.trim();
-
-          const fd = new FormData();
-          fd.append('offer_id', id);
-          fd.append('price', p);
-          fd.append('source_url', u);
-          fd.append('branch_address', a);
-
-          const r = await fetch('/admin/edit', { method: 'POST', body: fd });
-          if(r.ok){
-            location.reload();
-          } else {
-            alert('Güncellenemedi');
-          }
+        if(r.ok){
+        const tr = btn.closest('tr');
+        if(tr) tr.remove();
+        } else {
+        alert('Silinemedi');
         }
-      </script>
-      """
+    }
+
+    async function editOffer(id, currentPrice, currentUrl, currentAddr){
+        // 1) Fiyat sor
+        let p = prompt('Yeni fiyat (örn: 459.90):', String(currentPrice ?? ''));
+        if(p === null) return;
+        p = p.trim().replace(',', '.');
+        if(!p || isNaN(parseFloat(p))){
+        alert('Geçerli bir sayı gir lütfen.');
+        return;
+        }
+
+        // 2) Adres sor
+        let a = prompt('Şube adresi (boş bırakabilirsin):', currentAddr || '');
+        if(a === null) return;
+        a = a.trim();
+
+        // 3) URL sor
+        let u = prompt('Kaynak URL (boş bırakabilirsin):', currentUrl || '');
+        if(u === null) return;
+        u = u.trim();
+
+        const fd = new FormData();
+        fd.append('offer_id', id);
+        fd.append('price', p);
+        fd.append('source_url', u);
+        fd.append('branch_address', a);
+
+        const r = await fetch('/admin/edit', {
+        method: 'POST',
+        body: fd,
+        credentials: 'same-origin'
+        });
+
+        if(r.status === 401){
+        alert('Admin oturumu yok / süre dolmuş. Giriş ekranına yönlendiriyorum.');
+        location.href = '/admin/login';
+        return;
+        }
+
+        if(r.ok){
+        location.reload();
+        } else {
+        alert('Güncellenemedi');
+        }
+    }
+    </script>
+    """
 
     body = f"""
     <div class="bg-white card p-4">
