@@ -13,7 +13,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Optional, List, Tuple
 from pathlib import Path
-import os, json, sqlite3, hashlib
+import os, json, hashlib
 from urllib.parse import quote, unquote
 
 from fastapi import FastAPI, Request, Form, Depends, HTTPException, status
@@ -34,16 +34,20 @@ load_dotenv()
 
 
 # ================== Ayarlar ==================
-# PostgreSQL bağlantı URL'i - environment variable'dan al, yoksa Internal URL kullan
-DATABASE_URL = os.environ.get(
-    "DATABASE_URL",
-    "postgresql://pazarmetre_db_user:V7fFm1Z1HZ7Jh8EBrJE9QKoUciq0biXAadpg-d5kb5qngi27c739n5mi0-a/pazarmetre_db"
-)
-# Render.com genellikle postgres:// kullanır, postgresql:// olarak düzelt
-if DATABASE_URL.startswith("postgres://"):
+# PostgreSQL bağlantı URL'i - Render.com DATABASE_URL kullanır
+# Öncelik sırası: DATABASE_URL > PAZAR_DB > lokal SQLite
+DATABASE_URL = os.environ.get("DATABASE_URL") or os.environ.get("PAZAR_DB")
+
+# Render.com genellikle postgres:// kullanır, SQLAlchemy postgresql:// ister
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-# Yerel geliştirme için SQLite kullanabilirsin
-DB_URL = os.environ.get("PAZAR_DB", DATABASE_URL)
+
+# Varsayılan: lokal geliştirme için SQLite (sadece DATABASE_URL yoksa)
+if not DATABASE_URL:
+    DATABASE_URL = "sqlite:///pazarmetre.db"
+    print("⚠️  DATABASE_URL ayarlanmamış, SQLite kullanılıyor (sadece lokal geliştirme için)")
+
+DB_URL = DATABASE_URL
 ADMIN_PASSWORD = os.environ.get("PAZARMETRE_ADMIN", "pazarmetre123")
 SECRET_KEY = os.environ.get("SECRET_KEY", "your-secret-key-change-in-production")
 ALGORITHM = "HS256"
@@ -180,193 +184,17 @@ class Visit(SQLModel, table=True):
     ts: datetime = Field(default_factory=datetime.utcnow)
 
 # ================ DB & App =====================
-engine = create_engine(DB_URL, echo=False)
+# PostgreSQL için pool_pre_ping ekle (bağlantı kontrolü)
+engine_args = {}
+if DB_URL.startswith("postgresql"):
+    engine_args["pool_pre_ping"] = True
+    engine_args["pool_size"] = 5
+    engine_args["max_overflow"] = 10
+
+engine = create_engine(DB_URL, echo=False, **engine_args)
+
+# Tabloları oluştur (SQLModel tüm kolonları otomatik tanımlar)
 SQLModel.metadata.create_all(engine)
-
-def ensure_featured_column():
-    db_path = DB_URL.replace("sqlite:///", "", 1)
-    try:
-        con = sqlite3.connect(db_path)
-        cur = con.cursor()
-        cur.execute("PRAGMA table_info(product)")
-        cols = [r[1].lower() for r in cur.fetchall()]
-        if "featured" not in cols:
-            cur.execute("ALTER TABLE product ADD COLUMN featured BOOLEAN DEFAULT 0")
-            con.commit()
-    except Exception:
-        pass
-    finally:
-        try:
-            con.close()
-        except Exception:
-            pass
-def ensure_product_category_column():
-    db_path = DB_URL.replace("sqlite:///", "", 1)
-    try:
-        con = sqlite3.connect(db_path)
-        cur = con.cursor()
-        cur.execute("PRAGMA table_info(product)")
-        cols = [r[1].lower() for r in cur.fetchall()]
-        if "category" not in cols:
-            cur.execute("ALTER TABLE product ADD COLUMN category TEXT")
-        if "description" not in cols:
-            cur.execute("ALTER TABLE product ADD COLUMN description TEXT")
-        if "is_active" not in cols:
-            cur.execute("ALTER TABLE product ADD COLUMN is_active BOOLEAN DEFAULT 1")
-        if "created_by" not in cols:
-            cur.execute("ALTER TABLE product ADD COLUMN created_by TEXT DEFAULT 'admin'")
-        if "created_at" not in cols:
-            cur.execute("ALTER TABLE product ADD COLUMN created_at TEXT")
-        if "updated_at" not in cols:
-            cur.execute("ALTER TABLE product ADD COLUMN updated_at TEXT")
-        con.commit()
-    except Exception as e:
-        print("WARN ensure_product_category_column:", e)
-    finally:
-        try:
-            con.close()
-        except Exception:
-            pass
-# --- YENİ: offer tablosuna source_url sütunu ekleyen helper
-def ensure_source_url_column():
-    db_path = DB_URL.replace("sqlite:///", "", 1)
-    try:
-        con = sqlite3.connect(db_path)
-        cur = con.cursor()
-        cur.execute("PRAGMA table_info(offer)")
-        cols = [r[1].lower() for r in cur.fetchall()]
-        if "source_url" not in cols:
-            cur.execute("ALTER TABLE offer ADD COLUMN source_url TEXT")
-            con.commit()
-    except Exception:
-        pass
-    finally:
-        try:
-            con.close()
-        except Exception:
-            pass
-def ensure_source_price_columns():
-    db_path = DB_URL.replace("sqlite:///", "", 1)
-    try:
-        con = sqlite3.connect(db_path)
-        cur = con.cursor()
-        cur.execute("PRAGMA table_info(offer)")
-        cols = [r[1].lower() for r in cur.fetchall()]
-
-        if "source_price" not in cols:
-            cur.execute("ALTER TABLE offer ADD COLUMN source_price REAL")
-        if "source_checked_at" not in cols:
-            cur.execute("ALTER TABLE offer ADD COLUMN source_checked_at TEXT")
-        if "source_mismatch" not in cols:
-            cur.execute("ALTER TABLE offer ADD COLUMN source_mismatch INTEGER DEFAULT 0")
-        con.commit()
-    except Exception:
-        pass
-    finally:
-        try:
-            con.close()
-        except:
-            pass
-def ensure_source_weight_columns():
-    db_path = DB_URL.replace("sqlite:///", "", 1)
-    try:
-        con = sqlite3.connect(db_path)
-        cur = con.cursor()
-        cur.execute("PRAGMA table_info(offer)")
-        cols = [r[1].lower() for r in cur.fetchall()]
-        if "source_weight_g" not in cols:
-            cur.execute("ALTER TABLE offer ADD COLUMN source_weight_g REAL")
-        if "source_unit" not in cols:
-            cur.execute("ALTER TABLE offer ADD COLUMN source_unit TEXT")
-        con.commit()
-    except Exception:
-        pass
-    finally:
-        try:
-            con.close()
-        except Exception:
-            pass
-
-def ensure_branch_address_column():
-    db_path = DB_URL.replace("sqlite:///", "", 1)
-    try:
-        con = sqlite3.connect(db_path)
-        cur = con.cursor()
-        cur.execute("PRAGMA table_info(offer)")
-        cols = [r[1].lower() for r in cur.fetchall()]
-        if "branch_address" not in cols:
-            cur.execute("ALTER TABLE offer ADD COLUMN branch_address TEXT")
-            con.commit()
-    except Exception:
-        pass
-    finally:
-        try:
-            con.close()
-        except Exception:
-            pass
-
-
-def ensure_visit_schema():
-    """
-    visit tablosu yoksa oluşturur; varsa eksik kolonları ekler.
-    Eski şema yüzünden INSERT patlamasın diye.
-    """
-    db_path = DB_URL.replace("sqlite:///", "", 1)
-
-    try:
-        con = sqlite3.connect(db_path)
-        cur = con.cursor()
-
-        # Tablo var mı?
-        cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='visit'")
-        exists = cur.fetchone() is not None
-
-        if not exists:
-            cur.execute("""
-                CREATE TABLE visit (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    path TEXT,
-                    ip_hash TEXT,
-                    visitor_hash TEXT,
-                    ua TEXT,
-                    ts TEXT
-                )
-            """)
-            con.commit()
-        else:
-            cur.execute("PRAGMA table_info(visit)")
-            cols = [r[1].lower() for r in cur.fetchall()]
-
-            if "path" not in cols:
-                cur.execute("ALTER TABLE visit ADD COLUMN path TEXT")
-            if "ip_hash" not in cols:
-                cur.execute("ALTER TABLE visit ADD COLUMN ip_hash TEXT")
-            if "visitor_hash" not in cols:
-                cur.execute("ALTER TABLE visit ADD COLUMN visitor_hash TEXT")
-            if "ua" not in cols:
-                cur.execute("ALTER TABLE visit ADD COLUMN ua TEXT")
-            if "ts" not in cols:
-                cur.execute("ALTER TABLE visit ADD COLUMN ts TEXT")
-
-            con.commit()
-    except Exception as e:
-        print("WARN ensure_visit_schema:", e)
-    finally:
-        try:
-            con.close()
-        except Exception:
-            pass
-
-
-# Şema yükseltmelerini çağır
-ensure_featured_column()
-ensure_source_url_column()
-ensure_source_weight_columns()  # ← yeni
-ensure_source_price_columns()   # ← YENİ
-ensure_product_category_column()  # ← ET / TAVUK sütunu
-ensure_branch_address_column()  # ← Market adresi sütunu
-ensure_visit_schema()  # ← Ziyaret tablosu garanti
-        
 
 app = FastAPI(title="Pazarmetre")
 
