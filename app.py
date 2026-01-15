@@ -34,7 +34,16 @@ load_dotenv()
 
 
 # ================== Ayarlar ==================
-DB_URL = os.environ.get("PAZAR_DB", "sqlite:///pazarmetre.db")
+# PostgreSQL bağlantı URL'i - environment variable'dan al, yoksa Internal URL kullan
+DATABASE_URL = os.environ.get(
+    "DATABASE_URL",
+    "postgresql://pazarmetre_db_user:V7fFm1Z1HZ7Jh8EBrJE9QKoUciq0biXAadpg-d5kb5qngi27c739n5mi0-a/pazarmetre_db"
+)
+# Render.com genellikle postgres:// kullanır, postgresql:// olarak düzelt
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+# Yerel geliştirme için SQLite kullanabilirsin
+DB_URL = os.environ.get("PAZAR_DB", DATABASE_URL)
 ADMIN_PASSWORD = os.environ.get("PAZARMETRE_ADMIN", "pazarmetre123")
 SECRET_KEY = os.environ.get("SECRET_KEY", "your-secret-key-change-in-production")
 ALGORITHM = "HS256"
@@ -137,6 +146,9 @@ class Offer(SQLModel, table=True):
     source_checked_at: Optional[datetime] = None
     # bizim fiyatla kaynaktaki fiyat çelişiyor mu?
     source_mismatch: bool = Field(default=False)
+    
+    # Fiyat güncellendiğinde otomatik güncellenen alan
+    updated_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
 
 class Branch(SQLModel, table=True):
     """Şubeler (fiyat bağlamaz) – liste/harita/mesafe için"""
@@ -485,6 +497,26 @@ def turkish_lower(s: str) -> str:
         else:
             result.append(c.lower())
     return ''.join(result)
+
+# ==== Türkçe Tarih Formatı ====
+TURKISH_MONTHS = {
+    1: "Ocak", 2: "Şubat", 3: "Mart", 4: "Nisan",
+    5: "Mayıs", 6: "Haziran", 7: "Temmuz", 8: "Ağustos",
+    9: "Eylül", 10: "Ekim", 11: "Kasım", 12: "Aralık"
+}
+
+def format_turkish_date(dt: Optional[datetime]) -> str:
+    """Tarihi Türkçe formatında döndürür: '15 Ocak 2026'"""
+    if not dt:
+        return ""
+    return f"{dt.day} {TURKISH_MONTHS.get(dt.month, '')} {dt.year}"
+
+def format_turkish_date_short(dt: Optional[datetime]) -> str:
+    """Kısa Türkçe tarih: '15 Oca'"""
+    if not dt:
+        return ""
+    month_short = TURKISH_MONTHS.get(dt.month, "")[:3]
+    return f"{dt.day} {month_short}"
 
 # =============== Yardımcılar ===============
 def get_loc(request: Request) -> Tuple[Optional[str], Optional[str], Optional[str]]:
@@ -980,6 +1012,10 @@ async def dashboard(request: Request):
             
             # Display name olarak referans ürün adını kullan
             display_name = ref_prod.name
+            
+            # Tarih bilgisi - updated_at varsa onu, yoksa created_at kullan
+            price_date = getattr(off, 'updated_at', None) or off.created_at
+            date_display = format_turkish_date_short(price_date)
 
             card_html = f"""
               <a href="/urun?name={quote(display_name)}" class="bg-white card p-4 block hover:shadow-lg transition">
@@ -991,6 +1027,7 @@ async def dashboard(request: Request):
                   </div>
                   <div class="text-right shrink-0">
                     <div class="chip bg-accent-50 text-accent-700">{off.price:.2f} {off.currency}</div>
+                    <div class="text-xs text-gray-400 mt-1">{date_display}</div>
                   </div>
                 </div>
               </a>
@@ -1165,11 +1202,16 @@ async def product_detail(request: Request, name: str):
             actions_html = ""
 
         admin_cell = f"<td class='py-2 text-right'>{actions_html}</td>" if is_adm else ""
+        
+        # Tarih bilgisi - updated_at varsa onu, yoksa created_at kullan
+        price_date = getattr(off, 'updated_at', None) or off.created_at
+        date_display = format_turkish_date(price_date)
+        
         trs.append(
             f"<tr class='{tr_cls} border-b'>"
             f"<td class='py-2 font-medium'>{st.name}</td>"
             f"<td class='py-2 text-gray-600'>{addr_left}{display_addr}{addr_extra}</td>"
-            f"<td class='py-2 text-right font-semibold'>{off.price:.2f} {off.currency}</td>"
+            f"<td class='py-2 text-right'><div class='font-semibold'>{off.price:.2f} {off.currency}</div><div class='text-xs text-gray-400'>{date_display}</div></td>"
             f"<td class='py-2'>{badge}</td>"
             f"{admin_cell}"
             f"</tr>"

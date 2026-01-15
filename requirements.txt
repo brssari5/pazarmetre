@@ -1,25 +1,22 @@
-# Core Framework
+# Pazarmetre - Python Requirements
+# PostgreSQL ve FastAPI uygulaması için gerekli paketler
+
+# Web Framework
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
 
 # Database
 sqlmodel>=0.0.14
 sqlalchemy>=2.0.0
-psycopg2-binary>=2.9.9  # PostgreSQL support
-alembic>=1.13.0  # Database migrations
+psycopg2-binary>=2.9.9  # PostgreSQL driver
 
-# Security & Authentication
-python-jose[cryptography]>=3.3.0
+# Security & Auth
 passlib[bcrypt]>=1.7.4
+python-jose[cryptography]>=3.3.0
 python-multipart>=0.0.6
 
-# Environment Variables
+# Environment
 python-dotenv>=1.0.0
 
-# Email (optional)
-# python-decouple>=3.8
-# sendgrid>=6.11.0
-
-# Utilities
-pydantic>=2.5.0
-pydantic-settings>=2.1.0
+# Optional: for development
+# httpx>=0.25.0  # for testing
