@@ -1217,7 +1217,7 @@ async def product_detail(request: Request, name: str):
                 "<td class='py-2'>"
                 f"<button type='button' onclick='editOffer({off.id}, {off.price}, {url_js}, {addr_js})' "
                 "class='text-blue-600 hover:underline text-sm mr-2'>Düzenle</button>"
-                f"<button type='button' onclick='delOffer({off.id}, this)' "
+                f"<button type='button' onclick='showDelModal({off.id}, this)' "
                 "class='text-red-600 hover:underline text-sm'>Sil</button>"
                 "</td>"
             )
@@ -1239,80 +1239,210 @@ async def product_detail(request: Request, name: str):
         )
 
     extra_js = """
-    <script>
-    async function delOffer(id, btn){
-        if(!confirm('Silinsin mi?')) return;
+        <script>
+        /* =======================
+        MODAL: SİL
+        ======================= */
+        function showDelModal(id, btn){
+        const old = document.getElementById("pm-del-modal");
+        if(old) old.remove();
 
+        const wrap = document.createElement("div");
+        wrap.id = "pm-del-modal";
+        wrap.className = "fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4";
+
+        wrap.innerHTML = `
+            <div class="w-full max-w-md rounded-2xl bg-white shadow-xl p-5">
+            <div class="text-lg font-semibold mb-2">Silme işlemi nasıl uygulansın?</div>
+            <div class="text-sm text-gray-600 mb-4">
+                <b>Bu ilçe</b> sadece seçili ilçedeki kaydı siler.<br/>
+                <b>Bütün ilçeler</b> aynı kaydı tüm ilçelerden kaldırır.
+            </div>
+
+            <div class="flex flex-col gap-2">
+                <button id="pm-del-local"
+                class="w-full rounded-xl px-4 py-2 bg-gray-900 text-white hover:bg-gray-800">
+                Bu ilçe
+                </button>
+
+                <button id="pm-del-all"
+                class="w-full rounded-xl px-4 py-2 bg-red-600 text-white hover:bg-red-700">
+                Bütün ilçeler
+                </button>
+
+                <button id="pm-del-cancel"
+                class="w-full rounded-xl px-4 py-2 bg-gray-100 text-gray-800 hover:bg-gray-200">
+                Vazgeç
+                </button>
+            </div>
+            </div>
+        `;
+
+        wrap.addEventListener("click", (e) => {
+            if(e.target === wrap) wrap.remove();
+        });
+
+        document.body.appendChild(wrap);
+
+        document.getElementById("pm-del-cancel").onclick = () => wrap.remove();
+
+        document.getElementById("pm-del-local").onclick = async () => {
+            wrap.remove();
+            await delOffer(id, btn, "local");
+        };
+
+        document.getElementById("pm-del-all").onclick = async () => {
+            const ok = confirm("Emin misin?\\nBu kayıt TÜM ilçelerde silinecek!");
+            if(!ok) return;
+            wrap.remove();
+            await delOffer(id, btn, "all");
+        };
+        }
+
+        async function delOffer(id, btn, scope){
         const fd = new FormData();
-        fd.append('offer_id', id);
+        fd.append("offer_id", id);
+        fd.append("scope", scope);
 
-        const r = await fetch('/admin/del', {
-        method: 'POST',
-        body: fd,
-        credentials: 'same-origin'
+        const r = await fetch("/admin/del", {
+            method: "POST",
+            body: fd,
+            credentials: "same-origin"
         });
 
         if(r.status === 401){
-        alert('Admin oturumu yok / süre dolmuş. Giriş ekranına yönlendiriyorum.');
-        location.href = '/admin/login';
-        return;
+            alert("Admin oturumu yok / süre dolmuş. Giriş ekranına yönlendiriyorum.");
+            location.href = "/admin/login";
+            return;
         }
 
         if(r.ok){
-        const tr = btn.closest('tr');
-        if(tr) tr.remove();
+            if(scope === "local"){
+            const tr = btn.closest("tr");
+            if(tr) tr.remove();
+            } else {
+            location.reload();
+            }
         } else {
-        alert('Silinemedi');
+            alert("Silinemedi");
         }
-    }
+        }
 
-    async function editOffer(id, currentPrice, currentUrl, currentAddr){
-        // 1) Fiyat sor
-        let p = prompt('Yeni fiyat (örn: 459.90):', String(currentPrice ?? ''));
+        /* =======================
+        MODAL: DÜZENLE (scope seçimi)
+        ======================= */
+        function showEditModal(payload){
+        // payload: {id, price, url, addr}
+        const old = document.getElementById("pm-edit-modal");
+        if(old) old.remove();
+
+        const wrap = document.createElement("div");
+        wrap.id = "pm-edit-modal";
+        wrap.className = "fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4";
+
+        wrap.innerHTML = `
+            <div class="w-full max-w-md rounded-2xl bg-white shadow-xl p-5">
+            <div class="text-lg font-semibold mb-2">Düzenleme nasıl uygulansın?</div>
+            <div class="text-sm text-gray-600 mb-4">
+                <b>Bu ilçe</b> sadece seçili ilçedeki kaydı günceller.<br/>
+                <b>Bütün ilçeler</b> aynı ürün + aynı market için tüm ilçeleri günceller.
+            </div>
+
+            <div class="flex flex-col gap-2">
+                <button id="pm-edit-local"
+                class="w-full rounded-xl px-4 py-2 bg-gray-900 text-white hover:bg-gray-800">
+                Bu ilçe
+                </button>
+
+                <button id="pm-edit-all"
+                class="w-full rounded-xl px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700">
+                Bütün ilçeler
+                </button>
+
+                <button id="pm-edit-cancel"
+                class="w-full rounded-xl px-4 py-2 bg-gray-100 text-gray-800 hover:bg-gray-200">
+                Vazgeç
+                </button>
+            </div>
+            </div>
+        `;
+
+        wrap.addEventListener("click", (e) => {
+            if(e.target === wrap) wrap.remove();
+        });
+
+        document.body.appendChild(wrap);
+
+        document.getElementById("pm-edit-cancel").onclick = () => wrap.remove();
+
+        document.getElementById("pm-edit-local").onclick = async () => {
+            wrap.remove();
+            await applyEdit(payload, "local");
+        };
+
+        document.getElementById("pm-edit-all").onclick = async () => {
+            const ok = confirm("Emin misin?\\nBu değişiklik TÜM ilçelere uygulanacak!");
+            if(!ok) return;
+            wrap.remove();
+            await applyEdit(payload, "all");
+        };
+        }
+
+        async function applyEdit(payload, scope){
+        const fd = new FormData();
+        fd.append("offer_id", payload.id);
+        fd.append("price", payload.price);
+        fd.append("source_url", payload.url);
+        fd.append("branch_address", payload.addr);
+        fd.append("scope", scope);
+
+        const r = await fetch("/admin/edit", {
+            method: "POST",
+            body: fd,
+            credentials: "same-origin"
+        });
+
+        if(r.status === 401){
+            alert("Admin oturumu yok / süre dolmuş. Giriş ekranına yönlendiriyorum.");
+            location.href = "/admin/login";
+            return;
+        }
+
+        if(r.ok){
+            location.reload();
+        } else {
+            alert("Güncellenemedi");
+        }
+        }
+
+        /* =======================
+        DÜZENLE (eski akış aynı: prompt prompt prompt -> sonra scope sor)
+        ======================= */
+        async function editOffer(id, currentPrice, currentUrl, currentAddr){
+        // 1) Fiyat
+        let p = prompt("Yeni fiyat (örn: 459.90):", String(currentPrice ?? ""));
         if(p === null) return;
-        p = p.trim().replace(',', '.');
+        p = p.trim().replace(",", ".");
         if(!p || isNaN(parseFloat(p))){
-        alert('Geçerli bir sayı gir lütfen.');
-        return;
+            alert("Geçerli bir sayı gir lütfen.");
+            return;
         }
 
-        // 2) Adres sor
-        let a = prompt('Şube adresi (boş bırakabilirsin):', currentAddr || '');
+        // 2) Adres
+        let a = prompt("Şube adresi (boş bırakabilirsin):", currentAddr || "");
         if(a === null) return;
         a = a.trim();
 
-        // 3) URL sor
-        let u = prompt('Kaynak URL (boş bırakabilirsin):', currentUrl || '');
+        // 3) URL
+        let u = prompt("Kaynak URL (boş bırakabilirsin):", currentUrl || "");
         if(u === null) return;
         u = u.trim();
 
-        const fd = new FormData();
-        fd.append('offer_id', id);
-        fd.append('price', p);
-        fd.append('source_url', u);
-        fd.append('branch_address', a);
-
-        const r = await fetch('/admin/edit', {
-        method: 'POST',
-        body: fd,
-        credentials: 'same-origin'
-        });
-
-        if(r.status === 401){
-        alert('Admin oturumu yok / süre dolmuş. Giriş ekranına yönlendiriyorum.');
-        location.href = '/admin/login';
-        return;
+        // 4) en sonda scope seçtir
+        showEditModal({ id: id, price: p, url: u, addr: a });
         }
-
-        if(r.ok){
-        location.reload();
-        } else {
-        alert('Güncellenemedi');
-        }
-    }
-    </script>
-    """
-
+        </script>
+        """
     body = f"""
     <div class="bg-white card p-4">
       <div class="flex items-center justify-between mb-3">
@@ -2318,16 +2448,68 @@ async def kvkk_aydinlatma(request: Request):
 
 # ---- Teklif Sil (Admin) ----
 @app.post("/admin/del")
-async def admin_delete_offer(request: Request, offer_id: int = Form(...)):
+async def admin_delete_offer(
+    request: Request,
+    offer_id: int = Form(...),
+    scope: str = Form("local"),
+):
     red = require_admin(request)
     if red:
         return red
+
+    scope = (scope or "local").lower().strip()
+
     with get_session() as s:
         off = s.get(Offer, offer_id)
-        if off:
+        if not off:
+            return PlainTextResponse("NOT_FOUND", status_code=404)
+
+        # 🔹 SADECE BU İLÇE
+        if scope == "local":
             s.delete(off)
             s.commit()
-    return PlainTextResponse("OK")
+            return PlainTextResponse("OK")
+
+        # 🔹 BÜTÜN İLÇELER
+        if scope == "all":
+            st = s.get(Store, off.store_id)
+            if not st:
+                # güvenli fallback
+                s.delete(off)
+                s.commit()
+                return PlainTextResponse("OK")
+
+            store_name = (st.name or "").strip()
+            city = st.city
+
+            # aynı şehir + aynı mağaza adı
+            store_ids = s.exec(
+                select(Store.id).where(
+                    Store.city == city,
+                    func.lower(Store.name) == store_name.casefold(),
+                )
+            ).all()
+
+            store_ids = [
+                x[0] if isinstance(x, tuple) else x
+                for x in store_ids
+            ]
+
+            if store_ids:
+                offers = s.exec(
+                    select(Offer).where(
+                        Offer.product_id == off.product_id,
+                        Offer.store_id.in_(store_ids),
+                    )
+                ).all()
+
+                for o in offers:
+                    s.delete(o)
+
+                s.commit()
+                return PlainTextResponse("OK")
+
+        return PlainTextResponse("INVALID_SCOPE", status_code=400)
 # ---- Teklif Güncelle (Admin) ----
 @app.post("/admin/edit")
 async def admin_edit_offer(
@@ -2336,31 +2518,54 @@ async def admin_edit_offer(
     price: str = Form(...),
     source_url: str = Form(""),
     branch_address: str = Form(""),
+    scope: str = Form("local"),   # <-- EKLENDİ
 ):
     red = require_admin(request)
     if red:
         return red
 
-    # fiyatı float'a çevir (virgülü noktaya çevirerek)
+    # price'ı float'a çevir (senin sistem nasıl tutuyorsa ona göre)
     try:
-        new_price = float(price.replace(",", "."))
-    except ValueError:
-        return PlainTextResponse("INVALID_PRICE", status_code=400)
+        new_price = float(str(price).replace(",", ".").strip())
+    except:
+        return PlainTextResponse("bad price", status_code=400)
 
     with get_session() as s:
         off = s.get(Offer, offer_id)
         if not off:
-            return PlainTextResponse("NOT_FOUND", status_code=404)
+            return PlainTextResponse("not found", status_code=404)
 
+        if scope == "all":
+            # Aynı ürün + aynı market adı (tüm ilçeler)
+            st = s.get(Store, off.store_id)
+            if not st:
+                return PlainTextResponse("store not found", status_code=404)
+
+            store_name = st.name
+            product_id = off.product_id
+
+            q = (
+                select(Offer)
+                .join(Store, Store.id == Offer.store_id)
+                .where(Offer.product_id == product_id)
+                .where(Store.name == store_name)
+            )
+            offers = s.exec(q).all()
+
+            for o in offers:
+                o.price = new_price
+                o.source_url = source_url
+                o.branch_address = branch_address
+
+            s.commit()
+            return PlainTextResponse("OK")
+
+        # local (sadece bu ilçe)
         off.price = new_price
-        off.source_url = source_url.strip() or None
-        off.branch_address = branch_address.strip() or None
-        off.updated_at = datetime.utcnow()  # Güncelleme tarihi
-
-        s.add(off)
+        off.source_url = source_url
+        off.branch_address = branch_address
         s.commit()
-
-    return PlainTextResponse("OK")
+        return PlainTextResponse("OK")
 # ---- Admin Stats (ziyaretler) ----
 @app.get("/admin/stats", response_class=HTMLResponse)
 async def admin_stats(request: Request):
