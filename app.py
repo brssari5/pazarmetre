@@ -454,6 +454,92 @@ def healthz_head():
     # HEAD isteği için sadece 200 dönmesi yeterli, body boş olabilir
     return PlainTextResponse("")
 
+# ==== SEO: robots.txt ====
+@app.get("/robots.txt", response_class=PlainTextResponse)
+def robots_txt():
+    """robots.txt dosyası - arama motorları için"""
+    content = f"""# Pazarmetre robots.txt
+# https://www.pazarmetre.com.tr/robots.txt
+
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /admin/
+Disallow: /api/
+Disallow: /setloc
+Disallow: /lokasyon
+
+# Sitemap
+Sitemap: {SITE_URL}/sitemap.xml
+
+# Crawl-delay (opsiyonel)
+Crawl-delay: 1
+"""
+    return PlainTextResponse(content, media_type="text/plain")
+
+# ==== SEO: sitemap.xml ====
+@app.get("/sitemap.xml", response_class=PlainTextResponse)
+def sitemap_xml():
+    """Dinamik sitemap.xml oluşturur"""
+    from datetime import datetime
+    
+    # Statik sayfalar
+    static_pages = [
+        {"loc": "/", "priority": "1.0", "changefreq": "daily"},
+        {"loc": "/iletisim", "priority": "0.5", "changefreq": "monthly"},
+        {"loc": "/hukuk", "priority": "0.3", "changefreq": "yearly"},
+        {"loc": "/cerez-politikasi", "priority": "0.3", "changefreq": "yearly"},
+        {"loc": "/kvkk-aydinlatma", "priority": "0.3", "changefreq": "yearly"},
+    ]
+    
+    urls = []
+    lastmod = datetime.utcnow().strftime("%Y-%m-%d")
+    
+    # Statik sayfaları ekle
+    for page in static_pages:
+        urls.append(f"""  <url>
+    <loc>{SITE_URL}{page['loc']}</loc>
+    <lastmod>{lastmod}</lastmod>
+    <changefreq>{page['changefreq']}</changefreq>
+    <priority>{page['priority']}</priority>
+  </url>""")
+    
+    # Dinamik ürün sayfalarını ekle
+    try:
+        with get_session() as s:
+            products = s.exec(select(Product).where(Product.featured == True)).all()
+            for p in products:
+                product_url = f"/urun?name={quote(p.name)}"
+                urls.append(f"""  <url>
+    <loc>{SITE_URL}{product_url}</loc>
+    <lastmod>{lastmod}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>""")
+    except Exception as e:
+        print(f"WARN sitemap products: {e}")
+    
+    # İlçe bazlı sayfalar (opsiyonel)
+    districts = [d["name"] for d in LOC_JSON["provinces"][0]["districts"]]
+    for dist in districts:
+        district_url = f"/l/Sakarya/{quote(dist)}"
+        urls.append(f"""  <url>
+    <loc>{SITE_URL}{district_url}</loc>
+    <lastmod>{lastmod}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+  </url>""")
+    
+    sitemap = f"""<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
+        http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+{chr(10).join(urls)}
+</urlset>"""
+    
+    return PlainTextResponse(sitemap, media_type="application/xml")
+
 # =============== Mini lokasyon verisi ===============
 LOC_JSON = {
     "provinces": [
@@ -594,6 +680,105 @@ def only_fresh_and_latest(rows: List[tuple], days_stale: int = 7, per_brand: boo
 
 TAILWIND_CDN = "https://cdn.tailwindcss.com"
 
+# ==== SEO Konfigürasyonu ====
+SITE_URL = "https://www.pazarmetre.com.tr"
+SITE_NAME = "Pazarmetre"
+DEFAULT_OG_IMAGE = f"{SITE_URL}/static/og-image.png"
+
+# SEO Meta Veri Yapısı
+SEO_DATA = {
+    "home": {
+        "title": "Market, Kasap ve Pazar Fiyatları Karşılaştırma | Pazarmetre",
+        "description": "Sakarya'da market, kasap ve pazar fiyatlarını karşılaştır. Migros, BİM, ŞOK, A101 ve yerel kasapların güncel fiyatlarını gör. En ucuz alışverişi yap!",
+        "keywords": "market fiyatları, kasap fiyatları, pazar fiyatları, Sakarya market, et fiyatları, fiyat karşılaştırma, ucuz alışveriş"
+    },
+    "kasap": {
+        "title": "Kasap Fiyatları 2026 - Et Fiyatları Karşılaştırma | Pazarmetre",
+        "description": "Sakarya kasaplarının güncel et fiyatlarını karşılaştır. Dana kıyma, kuzu pirzola, tavuk göğüs fiyatları. Hangi kasapta daha ucuz?",
+        "keywords": "kasap fiyatları, et fiyatları, dana kıyma fiyat, kuzu eti fiyat, tavuk fiyatları, Sakarya kasap"
+    },
+    "pazar": {
+        "title": "Pazar Fiyatları - Meyve Sebze Fiyatları | Pazarmetre",
+        "description": "Sakarya pazarlarında güncel meyve ve sebze fiyatlarını karşılaştır. En taze ürünleri en uygun fiyata bul!",
+        "keywords": "pazar fiyatları, sebze fiyatları, meyve fiyatları, Sakarya pazar, taze sebze, organik meyve"
+    }
+}
+
+def get_schema_org_website() -> str:
+    """Website Schema.org yapılandırılmış verisi"""
+    schema = {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": SITE_NAME,
+        "url": SITE_URL,
+        "description": SEO_DATA["home"]["description"],
+        "potentialAction": {
+            "@type": "SearchAction",
+            "target": f"{SITE_URL}/urun?name={{search_term_string}}",
+            "query-input": "required name=search_term_string"
+        }
+    }
+    return json.dumps(schema, ensure_ascii=False)
+
+def get_schema_org_organization() -> str:
+    """Organization Schema.org yapılandırılmış verisi"""
+    schema = {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": SITE_NAME,
+        "url": SITE_URL,
+        "logo": f"{SITE_URL}/static/logo.png",
+        "description": "Market, kasap ve pazar fiyatlarını karşılaştırma platformu",
+        "areaServed": {
+            "@type": "City",
+            "name": "Sakarya"
+        },
+        "sameAs": []
+    }
+    return json.dumps(schema, ensure_ascii=False)
+
+def get_schema_org_product(product_name: str, price: float, store_name: str, currency: str = "TRY") -> str:
+    """Product Schema.org yapılandırılmış verisi"""
+    schema = {
+        "@context": "https://schema.org",
+        "@type": "Product",
+        "name": product_name,
+        "description": f"{product_name} - Sakarya'da en uygun fiyatlar",
+        "offers": {
+            "@type": "AggregateOffer",
+            "lowPrice": str(price),
+            "priceCurrency": currency,
+            "availability": "https://schema.org/InStock",
+            "seller": {
+                "@type": "Organization",
+                "name": store_name
+            }
+        }
+    }
+    return json.dumps(schema, ensure_ascii=False)
+
+def get_schema_org_breadcrumb(items: list) -> str:
+    """BreadcrumbList Schema.org yapılandırılmış verisi
+    items: [("Ana Sayfa", "/"), ("Ürünler", "/urunler"), ("Dana Kıyma", None)]
+    """
+    list_items = []
+    for i, (name, url) in enumerate(items, 1):
+        item = {
+            "@type": "ListItem",
+            "position": i,
+            "name": name
+        }
+        if url:
+            item["item"] = f"{SITE_URL}{url}"
+        list_items.append(item)
+    
+    schema = {
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": list_items
+    }
+    return json.dumps(schema, ensure_ascii=False)
+
 def header_right_html(request: Request) -> str:
     city, dist, nb = get_loc(request)
 
@@ -644,8 +829,53 @@ def header_right_html(request: Request) -> str:
       {js}
     """
 
-def layout(req: Request, body: str, title: str = "Pazarmetre") -> HTMLResponse:
+def layout(
+    req: Request, 
+    body: str, 
+    title: str = "Pazarmetre",
+    description: str = None,
+    keywords: str = None,
+    canonical_path: str = None,
+    og_image: str = None,
+    schema_json: str = None,
+    noindex: bool = False
+) -> HTMLResponse:
+    """
+    SEO destekli layout fonksiyonu
+    
+    Args:
+        req: Request nesnesi
+        body: Sayfa içeriği HTML
+        title: Sayfa başlığı
+        description: Meta description
+        keywords: Meta keywords
+        canonical_path: Canonical URL path (örn: "/urun?name=Dana%20Kıyma")
+        og_image: Open Graph resmi URL
+        schema_json: Schema.org JSON-LD verisi
+        noindex: True ise robots noindex eklenir
+    """
     right = header_right_html(req)
+    
+    # Varsayılan değerler
+    if not description:
+        description = SEO_DATA["home"]["description"]
+    if not keywords:
+        keywords = SEO_DATA["home"]["keywords"]
+    if not og_image:
+        og_image = DEFAULT_OG_IMAGE
+    
+    # Canonical URL
+    canonical_url = SITE_URL + (canonical_path or req.url.path)
+    if req.url.query:
+        canonical_url += "?" + req.url.query
+    
+    # Robots meta tag
+    robots_meta = '<meta name="robots" content="noindex, nofollow">' if noindex else '<meta name="robots" content="index, follow">'
+    
+    # Schema.org JSON-LD
+    schema_script = ""
+    if schema_json:
+        schema_script = f'<script type="application/ld+json">{schema_json}</script>'
     
     # Get visitor count from database - only show for admin
     visitor_count_html = ""
@@ -663,8 +893,40 @@ def layout(req: Request, body: str, title: str = "Pazarmetre") -> HTMLResponse:
     
     html = f"""<!doctype html>
 <html lang="tr"><head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{title}</title>
+  
+  <!-- SEO Meta Tags -->
+  <meta name="description" content="{description}">
+  <meta name="keywords" content="{keywords}">
+  <meta name="author" content="Pazarmetre">
+  {robots_meta}
+  <link rel="canonical" href="{canonical_url}">
+  
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{canonical_url}">
+  <meta property="og:title" content="{title}">
+  <meta property="og:description" content="{description}">
+  <meta property="og:image" content="{og_image}">
+  <meta property="og:site_name" content="{SITE_NAME}">
+  <meta property="og:locale" content="tr_TR">
+  
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="{canonical_url}">
+  <meta name="twitter:title" content="{title}">
+  <meta name="twitter:description" content="{description}">
+  <meta name="twitter:image" content="{og_image}">
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+  <link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png">
+  
+  <!-- Schema.org JSON-LD -->
+  {schema_script}
+  
   <script src="{TAILWIND_CDN}"></script>
   <script>tailwind.config = {{
     theme: {{ extend: {{ colors: {{ brand: {{"50":"#ecfdf5","100":"#d1fae5","600":"#059669","700":"#047857"}}, accent: {{"50":"#eef2ff","600":"#4f46e5","700":"#4338ca"}} }} }} }}
@@ -1110,7 +1372,18 @@ async def dashboard(request: Request):
         </div>
         """
 
-    return layout(request, body, "Pazarmetre – Vitrin")
+    # SEO için Schema.org verisi oluştur
+    home_schema = get_schema_org_website() + ',' + get_schema_org_organization()
+    
+    return layout(
+        request, 
+        body, 
+        title=SEO_DATA["home"]["title"],
+        description=SEO_DATA["home"]["description"],
+        keywords=SEO_DATA["home"]["keywords"],
+        canonical_path="/",
+        schema_json=get_schema_org_website()
+    )
 # =============== Ürün Detay ===============
 @app.get("/urun", response_class=HTMLResponse)
 async def product_detail(request: Request, name: str):
@@ -1461,7 +1734,29 @@ async def product_detail(request: Request, name: str):
     </div>
     {extra_js}
     """
-    return layout(request, body, f"{prod.name} – Pazarmetre")
+    
+    # SEO için ürün bilgileri
+    best_store = rows_os[0][1].name if rows_os else "Pazarmetre"
+    product_title = f"{prod.name} Fiyatları {datetime.utcnow().year} | Pazarmetre"
+    product_description = f"{prod.name} en uygun fiyatlar. {city}/{dist} bölgesinde {prod.name} fiyatlarını karşılaştır. En ucuz fiyat: {best_price:.2f} TL - {best_store}"
+    product_keywords = f"{prod.name}, {prod.name} fiyat, {prod.name} fiyatları, {city} {prod.name}, ucuz {prod.name}"
+    
+    # Product Schema.org verisi
+    product_schema = get_schema_org_product(prod.name, best_price, best_store)
+    breadcrumb_schema = get_schema_org_breadcrumb([
+        ("Ana Sayfa", "/"),
+        (prod.name, None)
+    ])
+    
+    return layout(
+        request, 
+        body, 
+        title=product_title,
+        description=product_description,
+        keywords=product_keywords,
+        canonical_path=f"/urun?name={quote(prod.name)}",
+        schema_json=product_schema
+    )
 
 # =============== Mağazalar (isteğe bağlı, link yok) ===============
 @app.get("/magazalar", response_class=HTMLResponse)
