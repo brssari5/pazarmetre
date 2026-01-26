@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- SEO Meta Tags -->
+    <title>{{ title | default('Pazarmetre - Market, Kasap ve Pazar Fiyatlarını Karşılaştır') }}</title>
+    <meta name="description" content="{{ meta_description | default('Pazarmetre ile Sakarya\'da market, kasap ve pazar fiyatlarını karşılaştırın. En ucuz et, tavuk ve temel gıda fiyatları tek platformda.') }}">
+    <meta name="keywords" content="{{ meta_keywords | default('pazarmetre, market fiyatları, kasap fiyatları, pazar fiyatları, sakarya et fiyatları, dana kıyma fiyat, tavuk fiyat, fiyat karşılaştırma') }}">
+    <link rel="canonical" href="{{ canonical_url | default(request.url) }}">
+    
+    <!-- Robots -->
+    {% if noindex %}
+    <meta name="robots" content="noindex, nofollow">
+    {% else %}
+    <meta name="robots" content="index, follow">
+    {% endif %}
+    
+    <!-- Open Graph Tags -->
+    <meta property="og:title" content="{{ og_title | default(title) | default('Pazarmetre') }}">
+    <meta property="og:description" content="{{ og_description | default(meta_description) | default('Market, kasap ve pazar fiyatlarını karşılaştırın.') }}">
+    <meta property="og:type" content="{{ og_type | default('website') }}">
+    <meta property="og:url" content="{{ canonical_url | default(request.url) }}">
+    <meta property="og:site_name" content="Pazarmetre">
+    <meta property="og:locale" content="tr_TR">
+    {% if og_image %}
+    <meta property="og:image" content="{{ og_image }}">
+    {% endif %}
+    
+    <!-- Twitter Card Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ twitter_title | default(title) | default('Pazarmetre') }}">
+    <meta name="twitter:description" content="{{ twitter_description | default(meta_description) | default('Market, kasap ve pazar fiyatlarını karşılaştırın.') }}">
+    {% if twitter_image %}
+    <meta name="twitter:image" content="{{ twitter_image }}">
+    {% endif %}
+    
+    <!-- Schema.org Structured Data -->
+    {% if schema_data %}
+    <script type="application/ld+json">
+    {{ schema_data | safe }}
+    </script>
+    {% else %}
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "Pazarmetre",
+        "url": "https://www.pazarmetre.com.tr",
+        "description": "Market, kasap ve pazar fiyatlarını karşılaştırma platformu",
+        "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://www.pazarmetre.com.tr/urun?name={search_term_string}",
+            "query-input": "required name=search_term_string"
+        }
+    }
+    </script>
+    {% endif %}
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            "50": "#ecfdf5",
+                            "100": "#d1fae5",
+                            "600": "#059669",
+                            "700": "#047857"
+                        },
+                        accent: {
+                            "50": "#eef2ff",
+                            "600": "#4f46e5",
+                            "700": "#4338ca"
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        .card { border-radius: 1rem; box-shadow: 0 6px 14px rgba(0,0,0,.06); }
+        .card:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,.10); }
+        .chip { padding: .2rem .55rem; border-radius: .5rem; font-weight: 700; font-size: .85rem; }
+        
+        /* SEO için görünmez içerik stili */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+    </style>
+    
+    {% block head_extra %}{% endblock %}
+</head>
+<body class="bg-gradient-to-b from-brand-50 to-white text-gray-900">
+    <div class="max-w-6xl mx-auto p-4">
+        <!-- Header -->
+        <header class="flex items-center justify-between mb-5 flex-wrap gap-2">
+            <a href="/" class="text-2xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-emerald-600 to-indigo-600" aria-label="Pazarmetre Ana Sayfa">
+                Pazarmetre
+            </a>
+            <nav class="flex items-center gap-2" aria-label="Ana Navigasyon">
+                {{ header_right | safe }}
+            </nav>
+        </header>
+        
+        <!-- Main Content -->
+        <main>
+            {% block content %}{% endblock %}
+        </main>
+        
+        <!-- Footer -->
+        <footer class="mt-10 text-xs text-gray-400 text-center">
+            <nav aria-label="Alt Navigasyon">
+                <a href="/iletisim" class="text-indigo-600 hover:underline mr-3">İletişim</a>
+                <a href="/hukuk" class="text-indigo-600 hover:underline mr-3">Hukuki Bilgilendirme</a>
+                <a href="/cerez-politikasi" class="text-indigo-600 hover:underline mr-3">Çerez Politikası</a>
+                <a href="/kvkk-aydinlatma" class="text-indigo-600 hover:underline mr-3">KVKK Aydınlatma</a>
+            </nav>
+            <p class="text-gray-400 block mt-2">
+                © {{ current_year }} Pazarmetre · Fiyatlar bilgilendirme amaçlıdır.
+            </p>
+            {% if visitor_count_html %}
+            {{ visitor_count_html | safe }}
+            {% endif %}
+        </footer>
+        
+        <!-- Çerez Bannerı -->
+        <div id="cookieBanner"
+             class="fixed bottom-4 left-1/2 -translate-x-1/2 max-w-xl w-[95%] bg-white shadow-xl border rounded-2xl px-4 py-3
+                    flex flex-col md:flex-row items-start md:items-center gap-3 text-sm text-gray-800"
+             style="display:none; z-index:50;">
+            <div class="flex-1">
+                🔔 Pazarmetre deneyiminizi iyileştirmek için zorunlu çerezler ve anonim ziyaret istatistikleri kullanır.
+                Detaylar için
+                <a href="/cerez-politikasi" class="text-indigo-600 underline">Çerez Politikası</a> ve
+                <a href="/kvkk-aydinlatma" class="text-indigo-600 underline">KVKK Aydınlatma Metni</a>'ni inceleyebilirsiniz.
+            </div>
+            <div class="flex gap-2">
+                <button id="cookieAccept"
+                        class="px-3 py-1 rounded-lg bg-indigo-600 text-white text-xs md:text-sm">
+                    Kabul Ediyorum
+                </button>
+            </div>
+        </div>
+        
+        <script>
+            (function(){
+                try {
+                    var key = "pz_cookie_ok_v1";
+                    if (!localStorage.getItem(key)) {
+                        var b = document.getElementById("cookieBanner");
+                        if (b) b.style.display = "flex";
+                    }
+                    var btn = document.getElementById("cookieAccept");
+                    if (btn) {
+                        btn.addEventListener("click", function() {
+                            localStorage.setItem(key, "1");
+                            var b = document.getElementById("cookieBanner");
+                            if (b) b.style.display = "none";
+                        });
+                    }
+                } catch(e) {
+                    // localStorage yoksa sessiz geç
+                }
+            })();
+        </script>
+    </div>
+    
+    {% block scripts %}{% endblock %}
+</body>
+</html>

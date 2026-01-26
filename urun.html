@@ -1,0 +1,114 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<!-- Ürün Detay Sayfası -->
+<article class="max-w-4xl mx-auto" itemscope itemtype="https://schema.org/Product">
+    
+    <!-- Breadcrumb -->
+    <nav class="text-sm text-gray-500 mb-4" aria-label="Breadcrumb">
+        <ol class="flex items-center gap-2" itemscope itemtype="https://schema.org/BreadcrumbList">
+            <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+                <a href="/" class="text-indigo-600 hover:underline" itemprop="item">
+                    <span itemprop="name">Ana Sayfa</span>
+                </a>
+                <meta itemprop="position" content="1">
+            </li>
+            <li class="text-gray-400">›</li>
+            <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+                <span itemprop="name" class="text-gray-700">{{ product_name }}</span>
+                <meta itemprop="position" content="2">
+            </li>
+        </ol>
+    </nav>
+    
+    <!-- Ürün Başlığı -->
+    <section class="bg-white card p-6 mb-6">
+        <div class="flex items-center justify-between mb-3">
+            <h1 class="text-2xl font-bold text-gray-900" itemprop="name">{{ product_name }}</h1>
+            <a href="/" class="text-sm text-indigo-600 hover:underline">← Vitrine dön</a>
+        </div>
+        
+        {% if product_description %}
+        <p class="text-gray-600" itemprop="description">{{ product_description }}</p>
+        {% endif %}
+        
+        <!-- Schema.org fiyat bilgisi -->
+        {% if best_price %}
+        <div itemprop="offers" itemscope itemtype="https://schema.org/AggregateOffer" class="hidden">
+            <meta itemprop="lowPrice" content="{{ best_price }}">
+            <meta itemprop="highPrice" content="{{ highest_price }}">
+            <meta itemprop="priceCurrency" content="TRY">
+            <meta itemprop="offerCount" content="{{ offer_count }}">
+        </div>
+        {% endif %}
+    </section>
+    
+    <!-- Uyarı Bandı -->
+    <div class="mb-4 space-y-2">
+        <div class="p-3 rounded-lg bg-blue-50 text-blue-800 text-sm">
+            ℹ️ Ürünlerin bileşim oranlarında (ör. yağ oranı, katkılar, gramaj) markalar arasında farklılıklar olabilir.
+            Detaylar için ilgili mağazanın ürün sayfasına bakınız.
+        </div>
+        
+        <div class="p-3 rounded-lg bg-blue-50 text-blue-800 text-sm">
+            📊 Marketlerdeki fiyatlar farklı gramajlara ait olabilir.
+            <strong>Pazarmetre'deki fiyatlar 1&nbsp;kg'a çevrilmiş bilgilendirme fiyatlarıdır.</strong>
+        </div>
+    </div>
+    
+    <!-- Fiyat Tablosu -->
+    <section class="bg-white card p-4">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">{{ location_name }} - Fiyat Karşılaştırması</h2>
+        
+        {% if offers_html %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+                <thead>
+                    <tr class="text-left text-gray-500 border-b">
+                        <th class="py-2 px-2">Mağaza</th>
+                        <th class="py-2 px-2">Adres</th>
+                        <th class="py-2 px-2 text-right">Fiyat</th>
+                        <th class="py-2 px-2 text-center">Tarih</th>
+                        <th class="py-2 px-2"></th>
+                        {% if is_admin %}
+                        <th class="py-2 px-2"></th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody class="divide-y">
+                    {{ offers_html | safe }}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-gray-600 text-center py-8">
+            <p>Bu lokasyonda bu ürün için fiyat bulunamadı.</p>
+            <p class="mt-2">Lütfen farklı bir lokasyon seçin veya daha sonra tekrar deneyin.</p>
+        </div>
+        {% endif %}
+    </section>
+    
+    <!-- İlgili Ürünler (opsiyonel) -->
+    {% if related_products %}
+    <section class="mt-8">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Benzer Ürünler</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {% for rp in related_products %}
+            <a href="/urun?name={{ rp.name | urlencode }}" 
+               class="bg-white card p-4 hover:shadow-lg transition text-center">
+                <div class="font-medium text-gray-900">{{ rp.name }}</div>
+                {% if rp.price %}
+                <div class="text-emerald-600 font-semibold mt-1">{{ rp.price }} TL</div>
+                {% endif %}
+            </a>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+    
+</article>
+{% endblock %}
+
+{% block scripts %}
+{{ admin_scripts | safe }}
+{% endblock %}

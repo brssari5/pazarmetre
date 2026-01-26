@@ -1,0 +1,209 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<!-- Ana Sayfa İçeriği -->
+<article class="max-w-4xl mx-auto">
+    
+    <!-- Hero Section -->
+    <section class="bg-white card p-6 mb-8">
+        <h1 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4 text-center">
+            Market, Kasap ve Pazar Fiyatlarını Karşılaştır
+        </h1>
+        
+        <div class="prose prose-lg text-gray-700 max-w-none">
+            <p>
+                <strong>Pazarmetre</strong>, Sakarya ve çevresindeki market, kasap ve pazarlardaki güncel fiyatları 
+                tek bir platformda toplayan fiyat karşılaştırma hizmetidir. Alışveriş yapmadan önce hangi markette 
+                hangi ürün daha ucuz öğrenmek mi istiyorsunuz? Doğru yerdesiniz! Kırmızı et, tavuk, süt ürünleri 
+                ve temel gıda fiyatlarını karşılaştırarak bütçenize en uygun seçimi yapabilirsiniz.
+            </p>
+            <p>
+                Günlük güncellenen fiyat verileriyle marketlerin, kasapların ve pazarların anlık fiyatlarını 
+                takip edin. <strong>Dana kıyma</strong>, <strong>kuşbaşı</strong>, <strong>antrikot</strong>, 
+                <strong>tavuk but</strong> ve daha fazlası için en iyi fiyatı bulun. Pazarmetre ile akıllı 
+                alışveriş yapın, paranızın değerini koruyun.
+            </p>
+        </div>
+    </section>
+    
+    <!-- Nasıl Çalışır Section -->
+    <section class="bg-white card p-6 mb-8">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <span class="text-3xl">🔍</span> Nasıl Çalışır?
+        </h2>
+        
+        <div class="prose text-gray-700 max-w-none">
+            <p>
+                Pazarmetre, Sakarya'daki marketlerden, kasaplardan ve pazarlardan düzenli olarak fiyat bilgisi toplar. 
+                Bu veriler her gün güncellenir ve sizlere sunulur. Sistemimiz şu şekilde çalışır:
+            </p>
+            
+            <ol class="list-decimal list-inside space-y-3 mt-4">
+                <li>
+                    <strong>Lokasyon Seçin:</strong> İlçenizi seçerek size en yakın mağazaların fiyatlarını görün. 
+                    Sakarya'nın tüm ilçelerinde hizmet veriyoruz: Adapazarı, Akyazı, Arifiye, Erenler, Ferizli, 
+                    Geyve, Hendek, Karasu, Sapanca, Serdivan ve daha fazlası.
+                </li>
+                <li>
+                    <strong>Ürün Kategorisi Seçin:</strong> Kırmızı et, tavuk veya temel gıda kategorilerinden 
+                    birini seçin ya da tüm ürünleri görüntüleyin.
+                </li>
+                <li>
+                    <strong>Fiyatları Karşılaştırın:</strong> Aynı ürün için farklı marketlerin fiyatlarını 
+                    yan yana görün. En ucuz fiyat yeşil etiketle işaretlenir.
+                </li>
+                <li>
+                    <strong>Detayları İnceleyin:</strong> Ürün detay sayfasında tüm mağazaların fiyatlarını, 
+                    adreslerini ve fiyat güncelleme tarihlerini görüntüleyin.
+                </li>
+            </ol>
+            
+            <p class="mt-4">
+                Fiyatlar bilgilendirme amaçlıdır. Marketlerdeki anlık promosyonlar ve kampanyalar nedeniyle 
+                fiyatlar farklılık gösterebilir. En güncel fiyat için ilgili mağazayı ziyaret etmenizi öneririz.
+            </p>
+        </div>
+    </section>
+    
+    <!-- Neden Pazarmetre Section -->
+    <section class="bg-white card p-6 mb-8">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <span class="text-3xl">✨</span> Neden Pazarmetre?
+        </h2>
+        
+        <ul class="space-y-4">
+            <li class="flex items-start gap-3">
+                <span class="text-2xl">💰</span>
+                <div>
+                    <strong class="text-gray-900">Tasarruf Edin:</strong>
+                    <span class="text-gray-700">Aynı ürün için farklı mağazalardaki fiyatları karşılaştırarak aylık market harcamalarınızdan %10-30 tasarruf sağlayabilirsiniz.</span>
+                </div>
+            </li>
+            <li class="flex items-start gap-3">
+                <span class="text-2xl">⏱️</span>
+                <div>
+                    <strong class="text-gray-900">Zaman Kazanın:</strong>
+                    <span class="text-gray-700">Mağaza mağaza gezip fiyat araştırmanıza gerek yok. Tüm fiyatlar tek tıkla karşınızda.</span>
+                </div>
+            </li>
+            <li class="flex items-start gap-3">
+                <span class="text-2xl">📱</span>
+                <div>
+                    <strong class="text-gray-900">Mobil Uyumlu:</strong>
+                    <span class="text-gray-700">Telefon, tablet veya bilgisayarınızdan kolayca erişin. Alışveriş sırasında bile fiyat kontrolü yapın.</span>
+                </div>
+            </li>
+            <li class="flex items-start gap-3">
+                <span class="text-2xl">🔄</span>
+                <div>
+                    <strong class="text-gray-900">Güncel Veriler:</strong>
+                    <span class="text-gray-700">Fiyatlar düzenli olarak güncellenir. Her ürünün son güncelleme tarihi görüntülenir.</span>
+                </div>
+            </li>
+            <li class="flex items-start gap-3">
+                <span class="text-2xl">🏪</span>
+                <div>
+                    <strong class="text-gray-900">Geniş Mağaza Ağı:</strong>
+                    <span class="text-gray-700">BİM, A101, ŞOK, Migros, CarrefourSA ve yerel kasaplar dahil onlarca mağazanın fiyatlarını takip ediyoruz.</span>
+                </div>
+            </li>
+        </ul>
+    </section>
+    
+    <!-- Hangi Marketleri Karşılaştırıyoruz Section -->
+    <section class="bg-white card p-6 mb-8">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <span class="text-3xl">🏬</span> Hangi Marketleri Karşılaştırıyoruz?
+        </h2>
+        
+        <div class="prose text-gray-700 max-w-none">
+            <p>
+                Pazarmetre, Sakarya genelindeki büyük market zincirleri, yerel marketler, kasaplar ve 
+                pazarları kapsamlı bir şekilde takip etmektedir. Karşılaştırma yaptığımız başlıca 
+                mağazalar arasında <strong>BİM</strong>, <strong>A101</strong>, <strong>ŞOK</strong>, 
+                <strong>Migros</strong>, <strong>CarrefourSA</strong>, <strong>Metro</strong> ve 
+                <strong>yerel kasaplar</strong> bulunmaktadır.
+            </p>
+            <p>
+                Özellikle et ve tavuk fiyatları konusunda hem zincir marketlerin hem de güvenilir yerel 
+                kasapların fiyatlarını sunuyoruz. Böylece kalite ve fiyat dengesini sizin için en iyi 
+                şekilde değerlendirebilirsiniz. Mağaza listemiz sürekli genişlemektedir.
+            </p>
+        </div>
+    </section>
+    
+    <!-- Sık Sorulan Sorular Section -->
+    <section class="bg-white card p-6 mb-8" itemscope itemtype="https://schema.org/FAQPage">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <span class="text-3xl">❓</span> Sık Sorulan Sorular
+        </h2>
+        
+        <div class="space-y-6">
+            <div class="border-b pb-4" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question">
+                <h3 class="font-semibold text-gray-900 mb-2" itemprop="name">
+                    Pazarmetre ücretsiz mi?
+                </h3>
+                <div itemscope itemprop="acceptedAnswer" itemtype="https://schema.org/Answer">
+                    <p class="text-gray-700" itemprop="text">
+                        Evet, Pazarmetre tamamen ücretsizdir. Tüm fiyat karşılaştırma özelliklerini 
+                        üyelik veya ödeme yapmadan kullanabilirsiniz. Amacımız tüketicilerin bilinçli 
+                        alışveriş yapmasına yardımcı olmaktır.
+                    </p>
+                </div>
+            </div>
+            
+            <div class="border-b pb-4" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question">
+                <h3 class="font-semibold text-gray-900 mb-2" itemprop="name">
+                    Fiyatlar ne sıklıkla güncelleniyor?
+                </h3>
+                <div itemscope itemprop="acceptedAnswer" itemtype="https://schema.org/Answer">
+                    <p class="text-gray-700" itemprop="text">
+                        Fiyatlar günlük olarak güncellenmektedir. Her ürün kartında son güncelleme tarihi 
+                        belirtilir. Özellikle et ve tavuk gibi fiyatı sık değişen ürünler için düzenli 
+                        kontrol yapılmaktadır.
+                    </p>
+                </div>
+            </div>
+            
+            <div class="border-b pb-4" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question">
+                <h3 class="font-semibold text-gray-900 mb-2" itemprop="name">
+                    Fiyatlar neden farklı gramajlara göre hesaplanmış?
+                </h3>
+                <div itemscope itemprop="acceptedAnswer" itemtype="https://schema.org/Answer">
+                    <p class="text-gray-700" itemprop="text">
+                        Marketlerde aynı ürün farklı gramajlarda (500g, 750g, 1kg vb.) satılmaktadır. 
+                        Adil bir karşılaştırma yapabilmeniz için tüm fiyatları 1 kilogram bazında 
+                        hesaplıyoruz. Böylece elma ile armut karşılaştırması yapmamış olursunuz.
+                    </p>
+                </div>
+            </div>
+            
+            <div itemscope itemprop="mainEntity" itemtype="https://schema.org/Question">
+                <h3 class="font-semibold text-gray-900 mb-2" itemprop="name">
+                    İşletmem için fiyat girişi yapabilir miyim?
+                </h3>
+                <div itemscope itemprop="acceptedAnswer" itemtype="https://schema.org/Answer">
+                    <p class="text-gray-700" itemprop="text">
+                        Evet! Kasap, market veya bakkal sahipleri işletme hesabı oluşturarak kendi 
+                        fiyatlarını sisteme ekleyebilir. Bu sayede müşterilerinize güncel fiyatlarınızı 
+                        gösterebilir ve yeni müşteriler kazanabilirsiniz. Üye Girişi butonundan 
+                        kayıt olabilirsiniz.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Fiyat Karşılaştırma Bölümü Placeholder -->
+    <section class="mb-8">
+        {{ price_comparison_content | safe }}
+    </section>
+    
+</article>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Ana sayfa özel JavaScript'leri buraya eklenebilir
+</script>
+{% endblock %}

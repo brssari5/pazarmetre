@@ -1,0 +1,160 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<!-- Kategori Sayfası İçeriği -->
+<article class="max-w-4xl mx-auto">
+    
+    <!-- Breadcrumb -->
+    <nav class="text-sm text-gray-500 mb-4" aria-label="Breadcrumb">
+        <ol class="flex items-center gap-2" itemscope itemtype="https://schema.org/BreadcrumbList">
+            <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+                <a href="/" class="text-indigo-600 hover:underline" itemprop="item">
+                    <span itemprop="name">Ana Sayfa</span>
+                </a>
+                <meta itemprop="position" content="1">
+            </li>
+            <li class="text-gray-400">›</li>
+            <li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+                <span itemprop="name" class="text-gray-700">{{ category_title }}</span>
+                <meta itemprop="position" content="2">
+            </li>
+        </ol>
+    </nav>
+    
+    <!-- Kategori Başlığı -->
+    <section class="bg-white card p-6 mb-8">
+        <div class="flex items-center gap-4 mb-4">
+            <div class="w-16 h-16 rounded-full {{ category_bg_class }} flex items-center justify-center text-4xl">
+                {{ category_emoji }}
+            </div>
+            <div>
+                <h1 class="text-3xl font-bold {{ category_text_class }}">
+                    {{ category_title }} Fiyatları
+                </h1>
+                <p class="text-gray-600">{{ location_name }} - Güncel Fiyat Karşılaştırması</p>
+            </div>
+        </div>
+        
+        <div class="prose text-gray-700 max-w-none">
+            {{ category_description | safe }}
+        </div>
+    </section>
+    
+    <!-- Kategori Özel İçerik -->
+    {% if category_slug == 'kasap' or category_slug == 'et' %}
+    <section class="bg-white card p-6 mb-8">
+        <h2 class="text-xl font-bold text-gray-900 mb-4">🥩 Kasap Fiyatları Hakkında</h2>
+        <div class="prose text-gray-700 max-w-none">
+            <p>
+                <strong>{{ location_name }}</strong> bölgesindeki kasap ve market et fiyatlarını karşılaştırın. 
+                Dana kıyma, kuşbaşı, antrikot, bonfile, pirzola ve daha fazlası için güncel fiyatları burada bulabilirsiniz.
+            </p>
+            <p>
+                Et alırken dikkat etmeniz gerekenler:
+            </p>
+            <ul>
+                <li><strong>Yağ oranı:</strong> Kıyma için %10-20 yağ oranı idealdir</li>
+                <li><strong>Tazelik:</strong> Etin rengi parlak kırmızı olmalı, koyu renk bayatlık işareti olabilir</li>
+                <li><strong>Gramaj:</strong> Paket ürünlerde gramaja dikkat edin, kg fiyatını hesaplayın</li>
+                <li><strong>Menşei:</strong> Yerli et genellikle daha taze olur</li>
+            </ul>
+        </div>
+    </section>
+    {% endif %}
+    
+    {% if category_slug == 'pazar' or category_slug == 'tavuk' %}
+    <section class="bg-white card p-6 mb-8">
+        <h2 class="text-xl font-bold text-gray-900 mb-4">🍗 Tavuk Fiyatları Hakkında</h2>
+        <div class="prose text-gray-700 max-w-none">
+            <p>
+                <strong>{{ location_name }}</strong> bölgesindeki tavuk fiyatlarını karşılaştırın. 
+                Tavuk but, tavuk göğsü, tavuk kanat, bütün tavuk ve piliç ürünleri için en uygun fiyatları bulun.
+            </p>
+            <p>
+                Tavuk alırken dikkat etmeniz gerekenler:
+            </p>
+            <ul>
+                <li><strong>Son kullanma tarihi:</strong> Taze tavuk için SKT'ye dikkat edin</li>
+                <li><strong>Ambalaj:</strong> Vakumlu paket daha uzun süre saklanır</li>
+                <li><strong>Renk:</strong> Pembe-beyaz renk tazelik göstergesidir</li>
+                <li><strong>Marka:</strong> Güvenilir markalar tercih edin</li>
+            </ul>
+        </div>
+    </section>
+    {% endif %}
+    
+    {% if category_slug == 'diger' or category_slug == 'market' %}
+    <section class="bg-white card p-6 mb-8">
+        <h2 class="text-xl font-bold text-gray-900 mb-4">🛒 Temel Gıda Fiyatları Hakkında</h2>
+        <div class="prose text-gray-700 max-w-none">
+            <p>
+                <strong>{{ location_name }}</strong> bölgesindeki temel gıda fiyatlarını karşılaştırın. 
+                Süt, yoğurt, peynir, yumurta, ekmek ve diğer temel ihtiyaçlar için en uygun fiyatları bulun.
+            </p>
+            <p>
+                Market alışverişinde tasarruf ipuçları:
+            </p>
+            <ul>
+                <li><strong>Liste yapın:</strong> Alışverişe çıkmadan önce ihtiyaç listesi hazırlayın</li>
+                <li><strong>Kampanyaları takip edin:</strong> İndirimli ürünleri kaçırmayın</li>
+                <li><strong>Birim fiyatı karşılaştırın:</strong> Büyük paket her zaman ucuz olmayabilir</li>
+                <li><strong>Mevsim ürünleri tercih edin:</strong> Mevsiminde sebze-meyve daha ucuz</li>
+            </ul>
+        </div>
+    </section>
+    {% endif %}
+    
+    <!-- Fiyat Listesi -->
+    <section class="mb-8">
+        <h2 class="text-xl font-bold text-gray-900 mb-4">📊 {{ category_title }} - Fiyat Listesi</h2>
+        
+        {% if products_html %}
+        {{ products_html | safe }}
+        {% else %}
+        <div class="bg-white card p-6 text-gray-600 text-center">
+            <p>Bu kategoride henüz ürün bulunmamaktadır.</p>
+            <p class="mt-2">Yakında yeni ürünler eklenecektir.</p>
+        </div>
+        {% endif %}
+    </section>
+    
+    <!-- İlgili Kategoriler -->
+    <section class="bg-white card p-6 mb-8">
+        <h2 class="text-xl font-bold text-gray-900 mb-4">📂 Diğer Kategoriler</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {% if category_slug != 'et' %}
+            <a href="/?cat=et" class="p-4 border rounded-lg hover:border-red-400 hover:bg-red-50 transition text-center">
+                <span class="text-2xl block mb-2">🥩</span>
+                <span class="text-gray-700">Kırmızı Et</span>
+            </a>
+            {% endif %}
+            
+            {% if category_slug != 'tavuk' %}
+            <a href="/?cat=tavuk" class="p-4 border rounded-lg hover:border-amber-400 hover:bg-amber-50 transition text-center">
+                <span class="text-2xl block mb-2">🍗</span>
+                <span class="text-gray-700">Tavuk</span>
+            </a>
+            {% endif %}
+            
+            {% if category_slug != 'diger' %}
+            <a href="/?cat=diger" class="p-4 border rounded-lg hover:border-slate-400 hover:bg-slate-50 transition text-center">
+                <span class="text-2xl block mb-2">🛒</span>
+                <span class="text-gray-700">Temel Gıdalar</span>
+            </a>
+            {% endif %}
+            
+            <a href="/" class="p-4 border rounded-lg hover:border-emerald-400 hover:bg-emerald-50 transition text-center">
+                <span class="text-2xl block mb-2">🏠</span>
+                <span class="text-gray-700">Tüm Ürünler</span>
+            </a>
+        </div>
+    </section>
+    
+</article>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Kategori sayfası özel JavaScript'leri
+</script>
+{% endblock %}
