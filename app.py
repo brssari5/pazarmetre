@@ -28,6 +28,7 @@ import traceback
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 from dotenv import load_dotenv
+from fastapi import Response
 
 
 # Load environment variables
@@ -460,7 +461,26 @@ def healthz():
 def healthz_head():
     # HEAD isteği için sadece 200 dönmesi yeterli, body boş olabilir
     return PlainTextResponse("")
+@app.get("/sitemap.xml", include_in_schema=False)
+def sitemap_xml():
+    xml = """<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 
+  <url>
+    <loc>https://pazarmetre.com.tr/</loc>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+
+  <url>
+    <loc>https://pazarmetre.com.tr/vitrin</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+</urlset>
+"""
+    return Response(content=xml, media_type="application/xml")
 # =============== Mini lokasyon verisi ===============
 LOC_JSON = {
     "provinces": [
