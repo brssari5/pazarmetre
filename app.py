@@ -692,6 +692,14 @@ def layout(req: Request, body: str, title: str = "Pazarmetre") -> HTMLResponse:
 <html lang="tr"><head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{title}</title>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-M2CV5PJV2B"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){{dataLayer.push(arguments);}}
+    gtag('js', new Date());
+    gtag('config', 'G-M2CV5PJV2B');
+  </script>
   <script src="{TAILWIND_CDN}"></script>
   <script>tailwind.config = {{
     theme: {{ extend: {{ colors: {{ brand: {{"50":"#ecfdf5","100":"#d1fae5","600":"#059669","700":"#047857"}}, accent: {{"50":"#eef2ff","600":"#4f46e5","700":"#4338ca"}} }} }} }}
